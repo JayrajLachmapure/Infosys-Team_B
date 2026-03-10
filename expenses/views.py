@@ -27,11 +27,18 @@ class DashboardView(LoginRequiredMixin, View):
         kpi_data = data_service.get_kpi_data()
         
         # Get AI prediction and insights
-        from ai_engine.forecast import predict_next_day_expense
+        from ai_engine.forecast import predict_next_day_expense, predict_next_month_expense, get_expense_forecast_chart
         from ai_engine.insights import generate_user_insights
+        import json
         
         ai_prediction = predict_next_day_expense(request.user)
+        ai_monthly_forecast = predict_next_month_expense(request.user)
+        ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=4)
         ai_insights = generate_user_insights(request.user)
+        
+        # Serialize chart data as JSON for JavaScript
+        if ai_forecast_chart and ai_forecast_chart.get('chart_data'):
+            ai_forecast_chart['chart_data_json'] = json.dumps(ai_forecast_chart['chart_data'])
         
         # Get budget form
         current_month = datetime.now().strftime('%Y-%m')
@@ -51,6 +58,8 @@ class DashboardView(LoginRequiredMixin, View):
             'recent_expenses': recent_expenses,
             'current_month': datetime.now().strftime('%B %Y'),
             'ai_prediction': ai_prediction,
+            'ai_monthly_forecast': ai_monthly_forecast,
+            'ai_forecast_chart': ai_forecast_chart,
             'ai_insights': ai_insights,
         }
         
@@ -164,18 +173,99 @@ class ListExpensesView(LoginRequiredMixin, View):
 
 class AnalyticsView(LoginRequiredMixin, View):
     """
-    Detailed analytics page.
+    Detailed analytics page with AI forecasting.
     """
     def get(self, request):
-        analytics = ExpenseAnalytics(request.user)
+        from expenses.services import UnifiedDataService
+        from ai_engine.forecast import predict_next_month_expense, get_expense_forecast_chart, get_spending_analysis
+        import json
+        
+        data_service = UnifiedDataService(request.user)
+        summary = data_service.get_consistent_summary()
+        kpi_data = data_service.get_kpi_data()
+        chart_data = data_service.get_chart_data()
+        
+        # AI Forecasting data
+        ai_monthly_forecast = predict_next_month_expense(request.user)
+        ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=6)
+        spending_analysis = get_spending_analysis(request.user)
+        
+        # Serialize chart data as JSON for JavaScript
+        if ai_forecast_chart and ai_forecast_chart.get('chart_data'):
+            ai_forecast_chart['chart_data_json'] = json.dumps(ai_forecast_chart['chart_data'])
+        
+        # Serialize other chart data for JavaScript
+        def serialize_chart_data(data):
+            """Convert Decimal and datetime objects to JSON-serializable formats"""
+            if isinstance(data, list):
+                return [serialize_chart_data(item) for item in data]
+            elif isinstance(data, dict):
+                result = {}
+                for key, value in data.items():
+                    if key == 'month' and hasattr(value, 'strftime'):
+                        result[key] = value.strftime('%Y-%m')
+                    elif hasattr(value, '__float__'):  # Decimal
+                        result[key] = float(value)
+                    else:
+                        result[key] = serialize_chart_data(value)
+                return result
+            else:
+                return data
+        
+        category_breakdown_serialized = serialize_chart_data(chart_data.get('category_breakdown', []))
+        monthly_totals_serialized = serialize_chart_data(chart_data.get('monthly_totals', []))
+        
+        category_breakdown_json = json.dumps(category_breakdown_serialized)
+        monthly_totals_json = json.dumps(monthly_totals_serialized)
+        
+        # Generate trend data (daily expenses for last 30 days)
+        from datetime import datetime, timedelta
+        from django.db.models import Sum
+        from django.db.models.functions import TruncDate
+        from expenses.models import Expense
+        
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=30)
+        
+        daily_expenses = Expense.objects.filter(
+            user=request.user,
+            date__gte=start_date,
+            date__lte=end_date
+        ).annotate(
+            day=TruncDate('date')
+        ).values('day').annotate(
+            total=Sum('amount')
+        ).order_by('day')
+        
+        # Create trend data
+        trend_data = []
+        current_date = start_date
+        while current_date <= end_date:
+            day_expense = next((item for item in daily_expenses if item['day'] == current_date), None)
+            trend_data.append({
+                'date': current_date.strftime('%Y-%m-%d'),
+                'total': float(day_expense['total']) if day_expense else 0
+            })
+            current_date += timedelta(days=1)
+        
+        trend_data_json = json.dumps(trend_data)
         
         context = {
-            'category_breakdown': analytics.get_category_breakdown(),
-            'monthly_totals': analytics.get_monthly_totals(12),
-            'budget_status': analytics.get_budget_status(),
-            'total_expenses': analytics.get_current_month_total(),
-            'transaction_count': analytics.get_transaction_count(),
-            'average_transaction': analytics.get_current_month_total() / analytics.get_transaction_count() if analytics.get_transaction_count() > 0 else 0,
+            'summary': summary,
+            'kpi_data': kpi_data,
+            'chart_data': chart_data,
+            'budget_status': summary['budget_status'],
+            'total_expenses': summary['total_expenses'],
+            'transaction_count': summary['transaction_count'],
+            'average_transaction': summary['average_transaction'],
+            'category_breakdown': chart_data['category_breakdown'],
+            'monthly_totals': chart_data['monthly_totals'],
+            'ai_monthly_forecast': ai_monthly_forecast,
+            'ai_forecast_chart': ai_forecast_chart,
+            'spending_analysis': spending_analysis,
+            'category_breakdown_json': category_breakdown_json,
+            'monthly_totals_json': monthly_totals_json,
+            'trend_data_json': trend_data_json,
         }
         
         return render(request, 'expenses/analytics_modern.html', context)

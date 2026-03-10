@@ -222,6 +222,34 @@
                         </div>
                     </div>
 
+                    <!-- Monthly Expense Forecast -->
+                    <div class="insight-card">
+                        <div class="insight-header">
+                            <div class="insight-icon">
+                                <i class="fas fa-calendar-alt"></i>
+                            </div>
+                            <div class="insight-title">Next Month Forecast</div>
+                        </div>
+                        <div class="insight-content">
+                            {% if ai_monthly_forecast.success %}
+                                <div class="insight-value">{{ ai_monthly_forecast.predicted_amount_formatted }}</div>
+                                <p>
+                                    {% if ai_monthly_forecast.percentage_change > 0 %}
+                                        <span style="color: #EF4444;">+{{ ai_monthly_forecast.percentage_change }}%</span> compared to current month
+                                    {% elif ai_monthly_forecast.percentage_change < 0 %}
+                                        <span style="color: #10B981;">{{ ai_monthly_forecast.percentage_change }}%</span> compared to current month
+                                    {% else %}
+                                        <span style="color: #6B7280;">Similar to current month</span>
+                                    {% endif %}
+                                </p>
+                                <small>Confidence: {{ ai_monthly_forecast.confidence }}% • Trend: {{ ai_monthly_forecast.trend|title }}</small>
+                            {% else %}
+                                <p>{{ ai_monthly_forecast.message }}</p>
+                                <small>Add more monthly data to enable forecasting</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
                     <!-- Spending Analysis -->
                     <div class="insight-card">
                         <div class="insight-header">
@@ -257,6 +285,34 @@
                     </div>
                 </div>
             </div>
+
+            <!-- AI Expense Forecast Chart -->
+            {% if ai_forecast_chart %}
+            <div class="forecast-section fade-in">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-chart-line"></i>
+                        AI Expense Forecast
+                    </h2>
+                    <p class="section-subtitle">Machine learning predictions based on your spending patterns</p>
+                </div>
+                
+                <div class="forecast-chart-container">
+                    <canvas id="forecastChart" width="400" height="200"></canvas>
+                </div>
+                
+                <div class="forecast-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #3B82F6;"></div>
+                        <span>Historical Data</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #EF4444;"></div>
+                        <span>AI Predictions</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Advanced Business Intelligence Charts -->
             <div class="bi-section">
@@ -605,6 +661,108 @@
                 }
             }
         });
+
+        // AI Expense Forecast Chart
+        {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
+        const forecastChartCtx = document.getElementById('forecastChart').getContext('2d');
+        const forecastChartData = {{ ai_forecast_chart.chart_data_json|safe }};
+        
+        const historicalChartData = forecastChartData.filter(item => !item.is_predicted);
+        const predictedChartData = forecastChartData.filter(item => item.is_predicted);
+        
+        new Chart(forecastChartCtx, {
+            type: 'line',
+            data: {
+                labels: forecastChartData.map(item => item.month_name),
+                datasets: [{
+                    label: 'Historical Expenses',
+                    data: historicalChartData.map(item => ({ 
+                        x: item.month_name, 
+                        y: item.total 
+                    })),
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#3B82F6',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    fill: false,
+                    tension: 0.4
+                }, {
+                    label: 'AI Predictions',
+                    data: predictedChartData.map(item => ({ 
+                        x: item.month_name, 
+                        y: item.total 
+                    })),
+                    borderColor: '#EF4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [10, 5],
+                    pointBackgroundColor: '#EF4444',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    fill: false,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { 
+                            usePointStyle: true, 
+                            padding: 20,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const type = context.dataset.label;
+                                const value = '₹' + context.parsed.y.toLocaleString();
+                                return type + ': ' + value;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { display: false },
+                        title: { 
+                            display: true, 
+                            text: 'Month',
+                            font: { size: 12 }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F3F4F6' },
+                        title: { 
+                            display: true, 
+                            text: 'Amount (₹)',
+                            font: { size: 12 }
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
 
         // 4. Category Correlation Matrix
         const correlationCtx = document.getElementById('correlationChart').getContext('2d');

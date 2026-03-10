@@ -1172,3 +1172,62 @@ ss Intelligence Section */
         height: 300px;
     }
 }
+/*
+ AI Forecast Section Styles */
+.forecast-section {
+  background: var(--card-background);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+}
+
+.forecast-chart-container {
+  position: relative;
+  height: 300px;
+  margin: 20px 0;
+  padding: 10px;
+  background: #FAFBFC;
+  border-radius: var(--radius-md);
+  border: 1px solid #E5E7EB;
+}
+
+.forecast-legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+/* Responsive forecast section */
+@media (max-width: 768px) {
+  .forecast-chart-container {
+    height: 250px;
+    margin: 15px 0;
+    padding: 8px;
+  }
+  
+  .forecast-legend {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+  }
+}

@@ -255,6 +255,34 @@
                 </div>
             </div>
 
+            <!-- AI Expense Forecast Chart -->
+            {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
+            <div class="forecast-section fade-in">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-chart-line"></i>
+                        AI Expense Forecast
+                    </h2>
+                    <p class="section-subtitle">Machine learning predictions based on your spending patterns</p>
+                </div>
+                
+                <div class="forecast-chart-container">
+                    <canvas id="analyticsForecastChart" width="400" height="200"></canvas>
+                </div>
+                
+                <div class="forecast-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #3B82F6;"></div>
+                        <span>Historical Data</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #EF4444;"></div>
+                        <span>AI Predictions</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Insights Panel -->
             <div class="insights-panel">
                 <div class="insights-header">
@@ -573,212 +601,227 @@
         };
 
         // 1. Advanced Spending Trend Chart
-        fetch('/api/trend-chart-data/')
-            .then(response => response.json())
-            .then(data => {
-                const ctx = document.getElementById('trendChart').getContext('2d');
-                const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(79, 70, 229, 0.3)');
-                gradient.addColorStop(1, 'rgba(79, 70, 229, 0.05)');
+        const trendData = {{ trend_data_json|safe }};
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.3)');
+        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.05)');
 
-                new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            label: 'Daily Expenses',
-                            data: data.data,
-                            borderColor: colors.primary,
-                            backgroundColor: gradient,
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: colors.primary,
-                            pointBorderColor: '#FFFFFF',
-                            pointBorderWidth: 2,
-                            pointRadius: 6,
-                            pointHoverRadius: 8
-                        }]
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trendData.map(item => {
+                    const date = new Date(item.date);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }),
+                datasets: [{
+                    label: 'Daily Expenses',
+                    data: trendData.map(item => item.total),
+                    borderColor: colors.primary,
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: colors.primary,
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: false
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            intersect: false,
-                            mode: 'index'
-                        },
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                backgroundColor: '#1F2937',
-                                titleColor: '#FFFFFF',
-                                bodyColor: '#FFFFFF',
-                                borderColor: '#374151',
-                                borderWidth: 1,
-                                cornerRadius: 8,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        return 'Expenses: ₹' + context.parsed.y.toLocaleString();
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                grid: {
-                                    display: false
-                                },
-                                border: {
-                                    display: false
-                                }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                grid: {
-                                    color: '#F3F4F6'
-                                },
-                                border: {
-                                    display: false
-                                },
-                                ticks: {
-                                    callback: function(value) {
-                                        return '₹' + value.toLocaleString();
-                                    }
-                                }
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Expenses: ₹' + context.parsed.y.toLocaleString();
                             }
                         }
                     }
-                });
-            });
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#F3F4F6'
+                        },
+                        border: {
+                            display: false
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
 
         // 2. Enhanced Category Distribution
-        fetch('/api/category-chart-data/')
-            .then(response => response.json())
-            .then(data => {
-                const ctx = document.getElementById('categoryChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            data: data.data,
-                            backgroundColor: [
-                                colors.primary, colors.success, colors.warning, 
-                                colors.danger, colors.purple, colors.pink, 
-                                colors.cyan, colors.info
-                            ],
-                            borderWidth: 0,
-                            hoverBorderWidth: 3,
-                            hoverBorderColor: '#FFFFFF'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    padding: 20,
-                                    usePointStyle: true,
-                                    font: {
-                                        size: 12,
-                                        weight: '500'
-                                    }
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: '#1F2937',
-                                titleColor: '#FFFFFF',
-                                bodyColor: '#FFFFFF',
-                                borderColor: '#374151',
-                                borderWidth: 1,
-                                cornerRadius: 8,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        const percentage = ((context.parsed / context.dataset.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
-                                        return context.label + ': ₹' + context.parsed.toLocaleString() + ' (' + percentage + '%)';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            });
-
-        // 3. Monthly Comparison Bar Chart
-        fetch('/api/monthly-chart-data/')
-            .then(response => response.json())
-            .then(data => {
-                const ctx = document.getElementById('monthlyChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.labels,
-                        datasets: [{
-                            label: 'Monthly Expenses',
-                            data: data.data,
-                            backgroundColor: colors.primary,
-                            borderColor: colors.primary,
-                            borderWidth: 0,
-                            borderRadius: 8,
-                            borderSkipped: false,
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                backgroundColor: '#1F2937',
-                                titleColor: '#FFFFFF',
-                                bodyColor: '#FFFFFF',
-                                borderColor: '#374151',
-                                borderWidth: 1,
-                                cornerRadius: 8,
-                                padding: 12,
-                                callbacks: {
-                                    label: function(context) {
-                                        return 'Expenses: ₹' + context.parsed.y.toLocaleString();
-                                    }
+        const categoryData = {{ category_breakdown_json|safe }};
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        
+        if (categoryData && categoryData.length > 0) {
+            new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: categoryData.map(item => item.category),
+                    datasets: [{
+                        data: categoryData.map(item => item.total),
+                        backgroundColor: [
+                            colors.primary, colors.success, colors.warning, 
+                            colors.danger, colors.purple, colors.pink, 
+                            colors.cyan, colors.info
+                        ],
+                        borderWidth: 0,
+                        hoverBorderWidth: 3,
+                        hoverBorderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
                                 }
                             }
                         },
-                        scales: {
-                            x: {
-                                grid: {
-                                    display: false
-                                },
-                                border: {
-                                    display: false
-                                }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                grid: {
-                                    color: '#F3F4F6'
-                                },
-                                border: {
-                                    display: false
-                                },
-                                ticks: {
-                                    callback: function(value) {
-                                        return '₹' + value.toLocaleString();
-                                    }
+                        tooltip: {
+                            backgroundColor: '#1F2937',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#FFFFFF',
+                            borderColor: '#374151',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    const percentage = ((context.parsed / context.dataset.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                    return context.label + ': ₹' + context.parsed.toLocaleString() + ' (' + percentage + '%)';
                                 }
                             }
                         }
                     }
-                });
+                }
             });
+        } else {
+            // Show "No data" message
+            categoryCtx.font = "16px Inter";
+            categoryCtx.fillStyle = "#6B7280";
+            categoryCtx.textAlign = "center";
+            categoryCtx.fillText("No category data available", categoryCtx.canvas.width / 2, categoryCtx.canvas.height / 2);
+        }
+
+        // 3. Monthly Comparison Bar Chart
+        const monthlyData = {{ monthly_totals_json|safe }};
+        const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+        
+        if (monthlyData && monthlyData.length > 0) {
+            new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: monthlyData.map(item => {
+                        const date = new Date(item.month + '-01');
+                        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                    }),
+                    datasets: [{
+                        label: 'Monthly Expenses',
+                        data: monthlyData.map(item => item.total),
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                        borderWidth: 0,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#1F2937',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#FFFFFF',
+                            borderColor: '#374151',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Expenses: ₹' + context.parsed.y.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            border: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#F3F4F6'
+                            },
+                            border: {
+                                display: false
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '₹' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            // Show "No data" message
+            monthlyCtx.font = "16px Inter";
+            monthlyCtx.fillStyle = "#6B7280";
+            monthlyCtx.textAlign = "center";
+            monthlyCtx.fillText("No monthly data available", monthlyCtx.canvas.width / 2, monthlyCtx.canvas.height / 2);
+        }
 
         // 4. Expense Heatmap (Simulated with Matrix Chart)
         const heatmapCtx = document.getElementById('heatmapChart').getContext('2d');
@@ -990,6 +1033,108 @@
                 }
             }
         });
+
+        // AI Expense Forecast Chart for Analytics
+        {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
+        const analyticsForecastCtx = document.getElementById('analyticsForecastChart').getContext('2d');
+        const analyticsForecastData = {{ ai_forecast_chart.chart_data_json|safe }};
+        
+        const analyticsHistoricalData = analyticsForecastData.filter(item => !item.is_predicted);
+        const analyticsPredictedData = analyticsForecastData.filter(item => item.is_predicted);
+        
+        new Chart(analyticsForecastCtx, {
+            type: 'line',
+            data: {
+                labels: analyticsForecastData.map(item => item.month_name),
+                datasets: [{
+                    label: 'Historical Expenses',
+                    data: analyticsHistoricalData.map(item => ({ 
+                        x: item.month_name, 
+                        y: item.total 
+                    })),
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#3B82F6',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    fill: false,
+                    tension: 0.4
+                }, {
+                    label: 'AI Predictions',
+                    data: analyticsPredictedData.map(item => ({ 
+                        x: item.month_name, 
+                        y: item.total 
+                    })),
+                    borderColor: '#EF4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [10, 5],
+                    pointBackgroundColor: '#EF4444',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    fill: false,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { 
+                            usePointStyle: true, 
+                            padding: 20,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const type = context.dataset.label;
+                                const value = '₹' + context.parsed.y.toLocaleString();
+                                return type + ': ' + value;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { display: false },
+                        title: { 
+                            display: true, 
+                            text: 'Month',
+                            font: { size: 12 }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F3F4F6' },
+                        title: { 
+                            display: true, 
+                            text: 'Amount (₹)',
+                            font: { size: 12 }
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
 
         // Helper function to generate heatmap data
         function generateHeatmapData() {

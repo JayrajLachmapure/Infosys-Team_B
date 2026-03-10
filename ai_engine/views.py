@@ -6,7 +6,7 @@ from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views import View
 from django.http import JsonResponse
-from .forecast import predict_next_day_expense, get_expense_forecast, ExpenseForecastEngine
+from .forecast import predict_next_day_expense, predict_next_month_expense, get_expense_forecast_chart, ExpenseForecastEngine
 from .insights import generate_user_insights, FinancialInsightsEngine
 
 
