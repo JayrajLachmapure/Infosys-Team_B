@@ -287,7 +287,7 @@
             </div>
 
             <!-- AI Expense Forecast Chart -->
-            {% if ai_forecast_chart %}
+            {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
             <div class="forecast-section fade-in">
                 <div class="section-header">
                     <h2 class="section-title">
@@ -352,7 +352,7 @@
                             </div>
                         </div>
                         <div class="chart-container">
-                            <canvas id="forecastChart"></canvas>
+                            <canvas id="biForecastChart"></canvas>
                         </div>
                     </div>
 
@@ -561,9 +561,9 @@
             }
         });
 
-        // 2. AI Expense Forecast Chart
-        const forecastCtx = document.getElementById('forecastChart').getContext('2d');
-        new Chart(forecastCtx, {
+        // 2. BI Expense Forecast Chart
+        const biForecastCtx = document.getElementById('biForecastChart').getContext('2d');
+        new Chart(biForecastCtx, {
             type: 'line',
             data: {
                 labels: ['Today', 'Tomorrow', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
@@ -664,11 +664,110 @@
 
         // AI Expense Forecast Chart
         {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
-        const forecastChartCtx = document.getElementById('forecastChart').getContext('2d');
-        const forecastChartData = {{ ai_forecast_chart.chart_data_json|safe }};
-        
-        const historicalChartData = forecastChartData.filter(item => !item.is_predicted);
-        const predictedChartData = forecastChartData.filter(item => item.is_predicted);
+        try {
+            console.log('DEBUG: AI Forecast Chart data available, initializing chart...');
+            const forecastChartCtx = document.getElementById('forecastChart');
+            if (forecastChartCtx) {
+                const forecastChartData = {{ ai_forecast_chart.chart_data_json|safe }};
+                console.log('DEBUG: Forecast data:', forecastChartData);
+                
+                const historicalChartData = forecastChartData.filter(item => !item.is_predicted);
+                const predictedChartData = forecastChartData.filter(item => item.is_predicted);
+                console.log('DEBUG: Historical data points:', historicalChartData.length);
+                console.log('DEBUG: Predicted data points:', predictedChartData.length);
+                
+                new Chart(forecastChartCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: forecastChartData.map(item => item.month_name),
+                        datasets: [{
+                            label: 'Historical Expenses',
+                            data: historicalChartData.map(item => ({ 
+                                x: item.month_name, 
+                                y: item.total 
+                            })),
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: '#3B82F6',
+                            pointBorderColor: '#FFFFFF',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            fill: false,
+                            tension: 0.4
+                        }, {
+                            label: 'AI Predictions',
+                            data: predictedChartData.map(item => ({ 
+                                x: item.month_name, 
+                                y: item.total 
+                            })),
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 3,
+                            borderDash: [10, 5],
+                            pointBackgroundColor: '#EF4444',
+                            pointBorderColor: '#FFFFFF',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            fill: false,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { 
+                                    usePointStyle: true, 
+                                    padding: 20,
+                                    font: { size: 12 }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#1F2937',
+                                titleColor: '#FFFFFF',
+                                bodyColor: '#FFFFFF',
+                                borderColor: '#374151',
+                                borderWidth: 1,
+                                cornerRadius: 8,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const type = context.dataset.label;
+                                        const value = '₹' + context.parsed.y.toLocaleString();
+                                        return type + ': ' + value;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { 
+                                grid: { display: false },
+                                title: { 
+                                    display: true, 
+                                    text: 'Month',
+                                    font: { size: 12 }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#F3F4F6' },
+                                title: { 
+                                    display: true, 
+                                    text: 'Amount (₹)',
+                                    font: { size: 12 }
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₹' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
         
         new Chart(forecastChartCtx, {
             type: 'line',
@@ -762,6 +861,12 @@
                 }
             }
         });
+            } else {
+                console.error('DEBUG: forecastChart canvas element not found');
+            }
+        } catch (error) {
+            console.error('DEBUG: Error initializing AI forecast chart:', error);
+        }
         {% endif %}
 
         // 4. Category Correlation Matrix
@@ -828,22 +933,6 @@
                 }
             }
         });
-
-        // Original Category Chart
-        fetch('/api/category-chart-data/')
-            .then(response => response.json())
-            .then(data => {
-                // This will be rendered in the AI insights section
-                console.log('Category data loaded for AI insights');
-            });
-
-        // Original Monthly Chart  
-        fetch('/api/monthly-chart-data/')
-            .then(response => response.json())
-            .then(data => {
-                // This will be rendered in the AI insights section
-                console.log('Monthly data loaded for AI insights');
-            });
 
         // Add fade-in animation on scroll
         const observerOptions = {
