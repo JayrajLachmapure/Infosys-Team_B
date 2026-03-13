@@ -1,0 +1,965 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - BudgetWise AI</title>
+    <link rel="stylesheet" href="{% static 'css/dashboard-modern.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="sidebar-logo-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <div class="sidebar-title">BudgetWise AI</div>
+                        <div class="sidebar-subtitle">Smart Finance Tracking</div>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{% url 'expenses:dashboard' %}" class="nav-item active">
+                    <div class="nav-icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'expenses:add_expense' %}" class="nav-item">
+                    <div class="nav-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <span>Add Expense</span>
+                </a>
+                <a href="{% url 'expenses:list_expenses' %}" class="nav-item">
+                    <div class="nav-icon">
+                        <i class="fas fa-list-alt"></i>
+                    </div>
+                    <span>All Expenses</span>
+                </a>
+                <a href="{% url 'expenses:analytics' %}" class="nav-item">
+                    <div class="nav-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <span>Analytics</span>
+                </a>
+                <a href="{% url 'ai_engine:ai_dashboard' %}" class="nav-item">
+                    <div class="nav-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <span>AI Insights</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                    <div class="user-details">
+                        <div class="user-name">{{ user.username|title }}</div>
+                        <div class="user-email">{{ user.email }}</div>
+                    </div>
+                </div>
+                <a href="{% url 'accounts:logout' %}" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Header -->
+            <div class="dashboard-header">
+                <h1 class="dashboard-title">Financial Dashboard</h1>
+                <p class="dashboard-subtitle">Welcome back, {{ user.username|title }}! Here's your financial overview for {{ current_month }}.</p>
+            </div>
+
+            <!-- Usage Alerts -->
+            {% for alert in summary.usage_alerts %}
+            <div class="alert alert-{{ alert.type }}">
+                <div class="alert-icon">{{ alert.icon }}</div>
+                <div class="alert-content">
+                    <div class="alert-title">{{ alert.title }}</div>
+                    <div class="alert-message">{{ alert.message }}</div>
+                    {% if alert.progress > 0 %}
+                    <div class="progress-bar">
+                        <div class="progress-fill progress-{{ alert.type }}" style="width: {{ alert.progress }}%"></div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Summary Cards -->
+            <div class="summary-grid">
+                <!-- Total Expenses Card -->
+                <div class="summary-card fade-in">
+                    <div class="card-header">
+                        <div class="card-icon expenses">
+                            <i class="fas fa-wallet"></i>
+                        </div>
+                        <div class="card-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-value">{{ kpi_data.total_expenses.formatted }}</div>
+                        <div class="card-label">Total Expenses</div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-trend neutral">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span>This month</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Savings Card -->
+                <div class="summary-card fade-in">
+                    <div class="card-header">
+                        <div class="card-icon savings">
+                            <i class="fas fa-piggy-bank"></i>
+                        </div>
+                        <div class="card-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-value">₹{{ summary.total_savings.total_savings|floatformat:0 }}</div>
+                        <div class="card-label">Total Savings</div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-trend positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>{{ summary.total_savings.savings_rate }}% saved</span>
+                        </div>
+                        <div class="card-period">Last 12 months</div>
+                    </div>
+                </div>
+
+                <!-- Transactions Card -->
+                <div class="summary-card fade-in">
+                    <div class="card-header">
+                        <div class="card-icon transactions">
+                            <i class="fas fa-exchange-alt"></i>
+                        </div>
+                        <div class="card-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-value">{{ kpi_data.transaction_count.value }}</div>
+                        <div class="card-label">Transactions</div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-trend neutral">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span>This month</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Category Card -->
+                <div class="summary-card fade-in">
+                    <div class="card-header">
+                        <div class="card-icon category">
+                            <i class="fas fa-trophy"></i>
+                        </div>
+                        <div class="card-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="card-value">{{ summary.highest_category.category }}</div>
+                        <div class="card-label">Top Category</div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="card-trend neutral">
+                            <i class="fas fa-rupee-sign"></i>
+                            <span>₹{{ summary.highest_category.amount|floatformat:0 }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Insights Section -->
+            <div class="ai-insights fade-in">
+                <div class="ai-header">
+                    <div class="ai-icon">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div>
+                        <div class="ai-title">AI Financial Insights</div>
+                        <div class="ai-subtitle">Powered by machine learning analytics</div>
+                    </div>
+                </div>
+
+                <div class="insights-grid">
+                    <!-- AI Prediction -->
+                    <div class="insight-card">
+                        <div class="insight-header">
+                            <div class="insight-icon">
+                                <i class="fas fa-crystal-ball"></i>
+                            </div>
+                            <div class="insight-title">Next Day Prediction</div>
+                        </div>
+                        <div class="insight-content">
+                            {% if ai_prediction.success %}
+                                <div class="insight-value">₹{{ ai_prediction.predicted_amount }}</div>
+                                <p>Based on your last 10 days of spending patterns</p>
+                                <small>Confidence: {{ ai_prediction.confidence }}% • Trend: {{ ai_prediction.trend|title }}</small>
+                            {% else %}
+                                <p>{{ ai_prediction.message }}</p>
+                                <small>Add more expense data to enable predictions</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Monthly Expense Forecast -->
+                    <div class="insight-card">
+                        <div class="insight-header">
+                            <div class="insight-icon">
+                                <i class="fas fa-calendar-alt"></i>
+                            </div>
+                            <div class="insight-title">Next Month Forecast</div>
+                        </div>
+                        <div class="insight-content">
+                            {% if ai_monthly_forecast.success %}
+                                <div class="insight-value">{{ ai_monthly_forecast.predicted_amount_formatted }}</div>
+                                <p>
+                                    {% if ai_monthly_forecast.percentage_change > 0 %}
+                                        <span style="color: #EF4444;">+{{ ai_monthly_forecast.percentage_change }}%</span> compared to current month
+                                    {% elif ai_monthly_forecast.percentage_change < 0 %}
+                                        <span style="color: #10B981;">{{ ai_monthly_forecast.percentage_change }}%</span> compared to current month
+                                    {% else %}
+                                        <span style="color: #6B7280;">Similar to current month</span>
+                                    {% endif %}
+                                </p>
+                                <small>Confidence: {{ ai_monthly_forecast.confidence }}% • Trend: {{ ai_monthly_forecast.trend|title }}</small>
+                            {% else %}
+                                <p>{{ ai_monthly_forecast.message }}</p>
+                                <small>Add more monthly data to enable forecasting</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Spending Analysis -->
+                    <div class="insight-card">
+                        <div class="insight-header">
+                            <div class="insight-icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div class="insight-title">Spending Analysis</div>
+                        </div>
+                        <div class="insight-content">
+                            <p>{{ ai_insights.spending_change.message }}</p>
+                            {% if ai_insights.overspending_alert.is_overspending %}
+                                <div class="insight-value" style="color: #FCA5A5;">
+                                    {{ ai_insights.overspending_alert.percentage_above_average }}%
+                                </div>
+                                <small>Above average spending</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Smart Recommendations -->
+                    <div class="insight-card">
+                        <div class="insight-header">
+                            <div class="insight-icon">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <div class="insight-title">Smart Recommendations</div>
+                        </div>
+                        <div class="insight-content">
+                            {% for advice in ai_insights.savings_advice|slice:":2" %}
+                                <p>{{ advice.message }}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Expense Forecast Chart -->
+            {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
+            <div class="forecast-section fade-in">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-chart-line"></i>
+                        AI Expense Forecast
+                    </h2>
+                    <p class="section-subtitle">Machine learning predictions based on your spending patterns</p>
+                </div>
+                
+                <div class="forecast-chart-container">
+                    <canvas id="forecastChart" width="400" height="200"></canvas>
+                </div>
+                
+                <div class="forecast-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #3B82F6;"></div>
+                        <span>Historical Data</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #EF4444;"></div>
+                        <span>AI Predictions</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Advanced Business Intelligence Charts -->
+            <div class="bi-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-brain"></i>
+                        Business Intelligence Dashboard
+                    </h2>
+                </div>
+                
+                <div class="bi-grid">
+                    <!-- Spending Velocity Chart -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <i class="fas fa-tachometer-alt"></i>
+                                Spending Velocity
+                            </div>
+                            <div class="chart-menu">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="velocityChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Expense Forecast -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <i class="fas fa-crystal-ball"></i>
+                                AI Expense Forecast
+                            </div>
+                            <div class="chart-menu">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="biForecastChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Budget Burn Rate -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <i class="fas fa-fire"></i>
+                                Budget Burn Rate
+                            </div>
+                            <div class="chart-menu">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="burnRateChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Expense Correlation Matrix -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <i class="fas fa-project-diagram"></i>
+                                Category Correlation
+                            </div>
+                            <div class="chart-menu">
+                                <i class="fas fa-ellipsis-h"></i>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="correlationChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Breakdown -->
+            <div class="monthly-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-calendar-alt"></i>
+                        Monthly Breakdown
+                    </h2>
+                </div>
+                <div class="monthly-grid">
+                    {% for month in summary.monthly_breakdown|slice:":6" %}
+                    <div class="month-card fade-in">
+                        <div class="month-header">
+                            <div class="month-title">{{ month.month }}</div>
+                            <div class="month-status {% if month.savings >= 0 %}positive{% else %}negative{% endif %}">
+                                {% if month.savings >= 0 %}
+                                    <i class="fas fa-check-circle"></i> Saved
+                                {% else %}
+                                    <i class="fas fa-exclamation-triangle"></i> Over Budget
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="month-stats">
+                            <div class="stat-item">
+                                <div class="stat-value">₹{{ month.expenses|floatformat:0 }}</div>
+                                <div class="stat-label">Expenses</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">₹{{ month.budget|floatformat:0 }}</div>
+                                <div class="stat-label">Budget</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" style="color: {% if month.savings >= 0 %}#10B981{% else %}#EF4444{% endif %}">
+                                    ₹{{ month.savings|floatformat:0 }}
+                                </div>
+                                <div class="stat-label">Savings</div>
+                            </div>
+                        </div>
+                        {% if month.budget > 0 %}
+                        <div class="progress-bar">
+                            <div class="progress-fill {% if month.savings >= 0 %}progress-success{% else %}progress-danger{% endif %}" 
+                                 style="width: {{ month.usage_percentage }}%"></div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Budget Management -->
+            <div class="budget-section fade-in">
+                <div class="budget-header">
+                    <div class="budget-icon">
+                        <i class="fas fa-bullseye"></i>
+                    </div>
+                    <div class="budget-title">Budget Management</div>
+                </div>
+                
+                <form method="post" action="{% url 'expenses:set_budget' %}" class="budget-form">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label">{{ budget_form.month.label }}</label>
+                        {{ budget_form.month }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ budget_form.amount.label }}</label>
+                        {{ budget_form.amount }}
+                    </div>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-save"></i>
+                        Set Budget
+                    </button>
+                </form>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="actions-section fade-in">
+                <div class="actions-header">
+                    <div class="actions-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div class="actions-title">Quick Actions</div>
+                </div>
+                
+                <div class="actions-grid">
+                    <a href="{% url 'expenses:add_expense' %}" class="action-btn primary">
+                        <i class="fas fa-plus"></i>
+                        Add Expense
+                    </a>
+                    <a href="{% url 'expenses:list_expenses' %}" class="action-btn secondary">
+                        <i class="fas fa-list"></i>
+                        View All Expenses
+                    </a>
+                    <a href="{% url 'expenses:analytics' %}" class="action-btn secondary">
+                        <i class="fas fa-chart-bar"></i>
+                        Advanced Analytics
+                    </a>
+                    <a href="{% url 'accounts:logout' %}" class="action-btn danger">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Chart Scripts -->
+    <script>
+        // Modern chart configuration
+        Chart.defaults.font.family = 'Inter, sans-serif';
+        Chart.defaults.color = '#6B7280';
+        Chart.defaults.borderColor = '#E5E7EB';
+        Chart.defaults.backgroundColor = 'rgba(79, 70, 229, 0.1)';
+
+        // Advanced Business Intelligence Charts
+
+        // 1. Spending Velocity Chart (Rate of spending over time)
+        const velocityCtx = document.getElementById('velocityChart').getContext('2d');
+        new Chart(velocityCtx, {
+            type: 'line',
+            data: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                datasets: [{
+                    label: 'Spending Rate (₹/day)',
+                    data: [1200, 1800, 950, 1600],
+                    borderColor: '#8B5CF6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#8B5CF6',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Rate: ₹' + context.parsed.y + '/day';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, border: { display: false } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F3F4F6' },
+                        border: { display: false },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. BI Expense Forecast Chart
+        const biForecastCtx = document.getElementById('biForecastChart').getContext('2d');
+        new Chart(biForecastCtx, {
+            type: 'line',
+            data: {
+                labels: ['Today', 'Tomorrow', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
+                datasets: [{
+                    label: 'Historical',
+                    data: [2500, 1800, 3200, null, null, null, null],
+                    borderColor: '#4F46E5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    borderWidth: 3,
+                    pointRadius: 6
+                }, {
+                    label: 'AI Prediction',
+                    data: [null, null, 3200, 2100, 2800, 1900, 2400],
+                    borderColor: '#10B981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [5, 5],
+                    pointRadius: 6,
+                    pointStyle: 'triangle'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ₹' + (context.parsed.y || 0).toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F3F4F6' },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 3. Budget Burn Rate Chart
+        const burnRateCtx = document.getElementById('burnRateChart').getContext('2d');
+        new Chart(burnRateCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Used', 'Remaining', 'Projected Overspend'],
+                datasets: [{
+                    data: [75, 20, 5],
+                    backgroundColor: ['#EF4444', '#10B981', '#F59E0B'],
+                    borderWidth: 0,
+                    cutout: '70%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // AI Expense Forecast Chart
+        {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
+        try {
+            console.log('DEBUG: AI Forecast Chart data available, initializing chart...');
+            const forecastChartCtx = document.getElementById('forecastChart');
+            if (forecastChartCtx) {
+                const forecastChartData = {{ ai_forecast_chart.chart_data_json|safe }};
+                console.log('DEBUG: Forecast data:', forecastChartData);
+                
+                const historicalChartData = forecastChartData.filter(item => !item.is_predicted);
+                const predictedChartData = forecastChartData.filter(item => item.is_predicted);
+                console.log('DEBUG: Historical data points:', historicalChartData.length);
+                console.log('DEBUG: Predicted data points:', predictedChartData.length);
+                
+                new Chart(forecastChartCtx.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: forecastChartData.map(item => item.month_name),
+                        datasets: [{
+                            label: 'Historical Expenses',
+                            data: historicalChartData.map(item => ({ 
+                                x: item.month_name, 
+                                y: item.total 
+                            })),
+                            borderColor: '#3B82F6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 3,
+                            pointBackgroundColor: '#3B82F6',
+                            pointBorderColor: '#FFFFFF',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            fill: false,
+                            tension: 0.4
+                        }, {
+                            label: 'AI Predictions',
+                            data: predictedChartData.map(item => ({ 
+                                x: item.month_name, 
+                                y: item.total 
+                            })),
+                            borderColor: '#EF4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 3,
+                            borderDash: [10, 5],
+                            pointBackgroundColor: '#EF4444',
+                            pointBorderColor: '#FFFFFF',
+                            pointBorderWidth: 2,
+                            pointRadius: 6,
+                            fill: false,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { 
+                                    usePointStyle: true, 
+                                    padding: 20,
+                                    font: { size: 12 }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#1F2937',
+                                titleColor: '#FFFFFF',
+                                bodyColor: '#FFFFFF',
+                                borderColor: '#374151',
+                                borderWidth: 1,
+                                cornerRadius: 8,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const type = context.dataset.label;
+                                        const value = '₹' + context.parsed.y.toLocaleString();
+                                        return type + ': ' + value;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { 
+                                grid: { display: false },
+                                title: { 
+                                    display: true, 
+                                    text: 'Month',
+                                    font: { size: 12 }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#F3F4F6' },
+                                title: { 
+                                    display: true, 
+                                    text: 'Amount (₹)',
+                                    font: { size: 12 }
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₹' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+        
+        new Chart(forecastChartCtx, {
+            type: 'line',
+            data: {
+                labels: forecastChartData.map(item => item.month_name),
+                datasets: [{
+                    label: 'Historical Expenses',
+                    data: historicalChartData.map(item => ({ 
+                        x: item.month_name, 
+                        y: item.total 
+                    })),
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#3B82F6',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    fill: false,
+                    tension: 0.4
+                }, {
+                    label: 'AI Predictions',
+                    data: predictedChartData.map(item => ({ 
+                        x: item.month_name, 
+                        y: item.total 
+                    })),
+                    borderColor: '#EF4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [10, 5],
+                    pointBackgroundColor: '#EF4444',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    fill: false,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { 
+                            usePointStyle: true, 
+                            padding: 20,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const type = context.dataset.label;
+                                const value = '₹' + context.parsed.y.toLocaleString();
+                                return type + ': ' + value;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { display: false },
+                        title: { 
+                            display: true, 
+                            text: 'Month',
+                            font: { size: 12 }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F3F4F6' },
+                        title: { 
+                            display: true, 
+                            text: 'Amount (₹)',
+                            font: { size: 12 }
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+            } else {
+                console.error('DEBUG: forecastChart canvas element not found');
+            }
+        } catch (error) {
+            console.error('DEBUG: Error initializing AI forecast chart:', error);
+        }
+        {% endif %}
+
+        // 4. Category Correlation Matrix
+        const correlationCtx = document.getElementById('correlationChart').getContext('2d');
+        new Chart(correlationCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Food vs Transport',
+                    data: [{x: 5000, y: 2000}, {x: 7000, y: 2500}, {x: 4500, y: 1800}, {x: 6200, y: 2200}],
+                    backgroundColor: '#4F46E5',
+                    pointRadius: 8
+                }, {
+                    label: 'Shopping vs Entertainment',
+                    data: [{x: 3000, y: 1500}, {x: 4500, y: 2200}, {x: 2800, y: 1200}, {x: 3800, y: 1800}],
+                    backgroundColor: '#10B981',
+                    pointRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { usePointStyle: true, padding: 20 }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': (₹' + context.parsed.x + ', ₹' + context.parsed.y + ')';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        title: { display: true, text: 'Primary Category (₹)' },
+                        grid: { color: '#F3F4F6' },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    y: {
+                        title: { display: true, text: 'Secondary Category (₹)' },
+                        grid: { color: '#F3F4F6' },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Add fade-in animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('open');
+        }
+    </script>
+</body>
+</html>

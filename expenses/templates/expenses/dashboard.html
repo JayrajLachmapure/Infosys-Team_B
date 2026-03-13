@@ -1,0 +1,330 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - BudgetWise</title>
+    <link rel="stylesheet" href="{% static 'css/modern-dashboard.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>💰 BudgetWise</h2>
+                <p class="sidebar-subtitle">AI Expense Forecasting</p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{% url 'expenses:dashboard' %}" class="nav-item active">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'expenses:add_expense' %}" class="nav-item">
+                    <span class="nav-icon">➕</span>
+                    <span>Add Expense</span>
+                </a>
+                <a href="{% url 'expenses:list_expenses' %}" class="nav-item">
+                    <span class="nav-icon">📋</span>
+                    <span>All Expenses</span>
+                </a>
+                <a href="{% url 'expenses:analytics' %}" class="nav-item">
+                    <span class="nav-icon">📈</span>
+                    <span>Analytics</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                    <div class="user-details">
+                        <div class="user-name">{{ user.username }}</div>
+                        <div class="user-email">{{ user.email }}</div>
+                    </div>
+                </div>
+                <a href="{% url 'accounts:logout' %}" class="btn-logout-sidebar">
+                    <span>🚪</span> Logout
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <h1>Dashboard Overview</h1>
+                    <p class="subtitle">{{ current_month }}</p>
+                </div>
+                <div class="top-bar-right">
+                    <button class="btn-icon" onclick="location.reload()">
+                        <span>🔄</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Messages -->
+            {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Budget Exceeded Warning -->
+            {% if summary.budget_status.budget > 0 and summary.budget_status.remaining < 0 %}
+            <div class="alert alert-warning">
+                <strong>⚠️ Budget Alert:</strong> You've exceeded your monthly budget by ?{{ summary.budget_status.remaining|floatformat:2|slice:"1:" }}. Consider reviewing your expenses.
+            </div>
+            {% endif %}
+
+            <!-- Summary Cards -->
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="card-icon blue">💰</div>
+                    <div class="card-content">
+                        <div class="card-label">Total Expenses</div>
+                        <div class="card-value">?{{ summary.total_expenses|floatformat:2 }}</div>
+                        <div class="card-subtitle">This month</div>
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="card-icon green">📝</div>
+                    <div class="card-content">
+                        <div class="card-label">Transactions</div>
+                        <div class="card-value">{{ summary.transaction_count }}</div>
+                        <div class="card-subtitle">Total entries</div>
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="card-icon orange">🏆</div>
+                    <div class="card-content">
+                        <div class="card-label">Top Category</div>
+                        <div class="card-value-small">{{ summary.highest_category.category }}</div>
+                        <div class="card-subtitle">?{{ summary.highest_category.amount|floatformat:2 }}</div>
+                    </div>
+                </div>
+
+                <div class="summary-card">
+                    <div class="card-icon {% if summary.budget_status.remaining < 0 %}red{% elif summary.budget_status.budget == 0 %}purple{% elif summary.budget_status.percentage > 80 %}orange{% else %}green{% endif %}">
+                        💳
+                    </div>
+                    <div class="card-content">
+                        <div class="card-label">Budget Status</div>
+                        {% if summary.budget_status.budget > 0 %}
+                            {% if summary.budget_status.remaining < 0 %}
+                                <div class="card-value-small negative">
+                                    ⚠️ ?{{ summary.budget_status.remaining|floatformat:2|slice:"1:" }}
+                                </div>
+                                <div class="card-subtitle" style="color: #ef4444;">
+                                    Budget exceeded by ?{{ summary.budget_status.remaining|floatformat:2|slice:"1:" }}
+                                </div>
+                            {% else %}
+                                <div class="card-value-small">
+                                    ?{{ summary.budget_status.remaining|floatformat:2 }}
+                                </div>
+                                <div class="card-subtitle">
+                                    Remaining ({{ summary.budget_status.percentage }}% used)
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="card-value-small">
+                                ?0.00
+                            </div>
+                            <div class="card-subtitle">
+                                No budget set
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-grid">
+                <!-- Category Distribution -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Category Distribution</h3>
+                        <span class="chart-subtitle">Current month breakdown</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Monthly Trend -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Monthly Expenses</h3>
+                        <span class="chart-subtitle">Last 6 months</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Budget & Recent Expenses -->
+            <div class="bottom-grid">
+                <!-- Set Budget Card -->
+                <div class="content-card">
+                    <h3 class="card-title">💼 Monthly Budget</h3>
+                    <form method="post" action="{% url 'expenses:set_budget' %}" class="budget-form-inline">
+                        {% csrf_token %}
+                        <div class="form-row">
+                            <div class="form-group-inline">
+                                <label>Month</label>
+                                {{ budget_form.month }}
+                            </div>
+                            <div class="form-group-inline">
+                                <label>Amount (?)</label>
+                                {{ budget_form.amount }}
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Budget</button>
+                        </div>
+                    </form>
+                    
+                    {% if summary.budget_status.budget > 0 %}
+                    <div class="budget-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ summary.budget_status.percentage }}%"></div>
+                        </div>
+                        <div class="progress-labels">
+                            <span>Spent: ?{{ summary.budget_status.spent|floatformat:2 }}</span>
+                            <span>Budget: ?{{ summary.budget_status.budget|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Recent Expenses -->
+                <div class="content-card">
+                    <div class="card-header-flex">
+                        <h3 class="card-title">📋 Recent Expenses</h3>
+                        <a href="{% url 'expenses:list_expenses' %}" class="link-view-all">View All →</a>
+                    </div>
+                    <div class="expenses-list-compact">
+                        {% if recent_expenses %}
+                            {% for expense in recent_expenses %}
+                            <div class="expense-item-compact">
+                                <div class="expense-icon-small">{{ expense.get_category_icon }}</div>
+                                <div class="expense-details-compact">
+                                    <div class="expense-category-small">{{ expense.category }}</div>
+                                    <div class="expense-date-small">{{ expense.date|date:"M d, Y" }}</div>
+                                </div>
+                                <div class="expense-amount-small">?{{ expense.amount|floatformat:2 }}</div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="empty-state-small">No expenses yet. Add your first expense!</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Category Distribution Chart
+        fetch('{% url "expenses:category_chart" %}')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('categoryChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.data,
+                            backgroundColor: data.colors,
+                            borderWidth: 0,
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 15,
+                                    font: { size: 12 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ?' + context.parsed.toFixed(2);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+
+        // Monthly Expenses Chart
+        fetch('{% url "expenses:monthly_chart" %}')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('monthlyChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Expenses',
+                            data: data.data,
+                            backgroundColor: '#4f46e5',
+                            borderRadius: 8,
+                            barThickness: 40
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return '?' + context.parsed.y.toFixed(2);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '?' + value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+
+        // Auto-hide messages
+        setTimeout(() => {
+            const messages = document.querySelector('.messages-container');
+            if (messages) {
+                messages.style.opacity = '0';
+                setTimeout(() => messages.remove(), 300);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,150 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Expenses - BudgetWise</title>
+    <link rel="stylesheet" href="{% static 'css/modern-dashboard.css' %}">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        {% include 'expenses/partials/sidebar.html' %}
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <h1>All Expenses</h1>
+                    <p class="subtitle">{{ count }} transactions | Total: ?{{ total|floatformat:2 }}</p>
+                </div>
+                <div class="top-bar-right">
+                    <a href="{% url 'expenses:add_expense' %}" class="btn btn-primary">+ Add Expense</a>
+                </div>
+            </header>
+
+            {% if messages %}
+            <div class="messages-container">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Filters -->
+            <div class="filters-card">
+                <form method="get" class="filters-form">
+                    <div class="filter-group">
+                        <label>{{ filter_form.category.label }}</label>
+                        {{ filter_form.category }}
+                    </div>
+                    <div class="filter-group">
+                        <label>{{ filter_form.month.label }}</label>
+                        {{ filter_form.month }}
+                    </div>
+                    <div class="filter-group">
+                        <label>{{ filter_form.search.label }}</label>
+                        {{ filter_form.search }}
+                    </div>
+                    <div class="filter-actions">
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <a href="{% url 'expenses:list_expenses' %}" class="btn btn-secondary">Clear</a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Expenses Table -->
+            <div class="table-card">
+                {% if page_obj %}
+                <div class="table-responsive">
+                    <table class="expenses-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for expense in page_obj %}
+                            <tr>
+                                <td>{{ expense.date|date:"M d, Y" }}</td>
+                                <td>
+                                    <span class="category-badge">
+                                        {{ expense.get_category_icon }} {{ expense.category }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="description-cell">
+                                        {{ expense.description|default:"No description"|truncatewords:15 }}
+                                    </div>
+                                </td>
+                                <td class="amount-cell">?{{ expense.amount|floatformat:2 }}</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <a href="{% url 'expenses:edit_expense' expense.id %}" class="btn-action edit" title="Edit">
+                                            ✏️
+                                        </a>
+                                        <form method="post" action="{% url 'expenses:delete_expense' expense.id %}" style="display: inline;">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="expenses:list_expenses">
+                                            <button type="submit" class="btn-action delete" onclick="return confirm('Delete this expense?')" title="Delete">
+                                                🗑️
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if page_obj.has_other_pages %}
+                <div class="pagination">
+                    {% if page_obj.has_previous %}
+                        <a href="?page=1{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.month %}&month={{ request.GET.month }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">« First</a>
+                        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.month %}&month={{ request.GET.month }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">‹ Previous</a>
+                    {% endif %}
+
+                    <span class="page-current">
+                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                    </span>
+
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.month %}&month={{ request.GET.month }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">Next ›</a>
+                        <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.month %}&month={{ request.GET.month }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="page-link">Last »</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <h3>No expenses found</h3>
+                    <p>Start tracking your expenses by adding your first entry.</p>
+                    <a href="{% url 'expenses:add_expense' %}" class="btn btn-primary">Add Your First Expense</a>
+                </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+
+    <script>
+        setTimeout(() => {
+            const messages = document.querySelector('.messages-container');
+            if (messages) {
+                messages.style.opacity = '0';
+                setTimeout(() => messages.remove(), 300);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
+

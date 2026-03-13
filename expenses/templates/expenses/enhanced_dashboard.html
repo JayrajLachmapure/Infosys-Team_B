@@ -1,0 +1,574 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Dashboard - BudgetWise AI</title>
+    <link rel="stylesheet" href="{% static 'css/modern-dashboard.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .enhanced-dashboard {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .dashboard-header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .header-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        
+        .header-subtitle {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .card-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+        
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #4299e1;
+            margin-bottom: 10px;
+        }
+        
+        .metric-label {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-success { background: #48bb78; }
+        .progress-warning { background: #ed8936; }
+        .progress-danger { background: #f56565; }
+        .progress-info { background: #4299e1; }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .alert-success { background: #f0fff4; border-left: 4px solid #48bb78; }
+        .alert-warning { background: #fffbf0; border-left: 4px solid #ed8936; }
+        .alert-danger { background: #fff5f5; border-left: 4px solid #f56565; }
+        .alert-info { background: #ebf8ff; border-left: 4px solid #4299e1; }
+        
+        .alert-icon {
+            font-size: 1.5rem;
+            margin-right: 10px;
+        }
+        
+        .monthly-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .month-card {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 4px solid #4299e1;
+        }
+        
+        .month-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        
+        .month-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #4299e1;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: #718096;
+        }
+        
+        .ai-insights {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .ai-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .ai-icon {
+            font-size: 2rem;
+            margin-right: 15px;
+        }
+        
+        .ai-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .insight-item {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .insight-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .insight-icon {
+            font-size: 1.3rem;
+            margin-right: 10px;
+        }
+        
+        .insight-title {
+            font-weight: 600;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+        
+        .budget-form {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #4299e1;
+        }
+        
+        .btn-primary {
+            background: #4299e1;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: #3182ce;
+        }
+    </style>
+</head>
+<body>
+    <div class="enhanced-dashboard">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <h1 class="header-title">🇮🇳 BudgetWise AI Dashboard</h1>
+            <p class="header-subtitle">Smart expense tracking with AI-powered insights • {{ current_month }}</p>
+        </div>
+
+        <!-- Usage Alerts -->
+        {% for alert in summary.usage_alerts %}
+        <div class="alert alert-{{ alert.type }}">
+            <span class="alert-icon">{{ alert.icon }}</span>
+            <div>
+                <strong>{{ alert.title }}</strong><br>
+                {{ alert.message }}
+                {% if alert.progress > 0 %}
+                <div class="progress-bar">
+                    <div class="progress-fill progress-{{ alert.type }}" style="width: {{ alert.progress }}%"></div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Main Metrics -->
+        <div class="dashboard-grid">
+            <!-- Total Expenses -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">💰</span>
+                    <h3 class="card-title">Total Expenses</h3>
+                </div>
+                <div class="metric-value">₹{{ summary.total_expenses|floatformat:2 }}</div>
+                <div class="metric-label">This Month</div>
+            </div>
+
+            <!-- Total Savings -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🏦</span>
+                    <h3 class="card-title">Total Savings</h3>
+                </div>
+                <div class="metric-value">₹{{ summary.total_savings.total_savings|floatformat:2 }}</div>
+                <div class="metric-label">Last 12 Months ({{ summary.total_savings.savings_rate }}% saved)</div>
+            </div>
+
+            <!-- Transactions -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">📝</span>
+                    <h3 class="card-title">Transactions</h3>
+                </div>
+                <div class="metric-value">{{ summary.transaction_count }}</div>
+                <div class="metric-label">This Month</div>
+            </div>
+
+            <!-- Top Category -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🏆</span>
+                    <h3 class="card-title">Top Category</h3>
+                </div>
+                <div class="metric-value">{{ summary.highest_category.category }}</div>
+                <div class="metric-label">₹{{ summary.highest_category.amount|floatformat:2 }}</div>
+            </div>
+        </div>
+
+        <!-- AI Insights Section -->
+        <div class="ai-insights">
+            <div class="ai-header">
+                <span class="ai-icon">🤖</span>
+                <h2 class="ai-title">AI Financial Insights</h2>
+            </div>
+
+            <!-- AI Prediction -->
+            {% if ai_prediction.success %}
+            <div class="insight-item">
+                <div class="insight-header">
+                    <span class="insight-icon">🔮</span>
+                    <span class="insight-title">Next Day Prediction</span>
+                </div>
+                <p>Based on your last 10 days of spending, you're likely to spend <strong>₹{{ ai_prediction.predicted_amount }}</strong> tomorrow.</p>
+                <p><small>Confidence: {{ ai_prediction.confidence }}% • Trend: {{ ai_prediction.trend|title }}</small></p>
+            </div>
+            {% else %}
+            <div class="insight-item">
+                <div class="insight-header">
+                    <span class="insight-icon">📊</span>
+                    <span class="insight-title">Prediction Unavailable</span>
+                </div>
+                <p>{{ ai_prediction.message }}</p>
+            </div>
+            {% endif %}
+
+            <!-- AI Insights -->
+            {% if ai_insights.overspending_alert.is_overspending %}
+            <div class="insight-item">
+                <div class="insight-header">
+                    <span class="insight-icon">⚠️</span>
+                    <span class="insight-title">Overspending Alert</span>
+                </div>
+                <p>{{ ai_insights.overspending_alert.message }}</p>
+            </div>
+            {% endif %}
+
+            <div class="insight-item">
+                <div class="insight-header">
+                    <span class="insight-icon">📈</span>
+                    <span class="insight-title">Spending Analysis</span>
+                </div>
+                <p>{{ ai_insights.spending_change.message }}</p>
+            </div>
+
+            <!-- Savings Advice -->
+            {% for advice in ai_insights.savings_advice %}
+            <div class="insight-item">
+                <div class="insight-header">
+                    <span class="insight-icon">{{ advice.icon }}</span>
+                    <span class="insight-title">Smart Tip</span>
+                </div>
+                <p>{{ advice.message }}</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Monthly Breakdown -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">📅</span>
+                <h3 class="card-title">Monthly Breakdown</h3>
+            </div>
+            <div class="monthly-breakdown">
+                {% for month in summary.monthly_breakdown|slice:":6" %}
+                <div class="month-card">
+                    <div class="month-title">{{ month.month }}</div>
+                    <div class="month-stats">
+                        <div class="stat-item">
+                            <div class="stat-value">₹{{ month.expenses|floatformat:0 }}</div>
+                            <div class="stat-label">Expenses</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">₹{{ month.budget|floatformat:0 }}</div>
+                            <div class="stat-label">Budget</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" style="color: {% if month.savings >= 0 %}#48bb78{% else %}#f56565{% endif %}">
+                                ₹{{ month.savings|floatformat:0 }}
+                            </div>
+                            <div class="stat-label">Savings</div>
+                        </div>
+                    </div>
+                    {% if month.budget > 0 %}
+                    <div class="progress-bar">
+                        <div class="progress-fill {% if month.savings >= 0 %}progress-success{% else %}progress-danger{% endif %}" 
+                             style="width: {{ month.usage_percentage }}%"></div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="dashboard-grid">
+            <!-- Category Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🥧</span>
+                    <h3 class="card-title">Expense Categories</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Monthly Trend Chart -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">📊</span>
+                    <h3 class="card-title">Monthly Trend</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget Management -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-icon">🎯</span>
+                <h3 class="card-title">Budget Management</h3>
+            </div>
+            
+            <div class="budget-form">
+                <form method="post" action="{% url 'expenses:set_budget' %}">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label">{{ budget_form.month.label }}</label>
+                        {{ budget_form.month }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ budget_form.amount.label }}</label>
+                        {{ budget_form.amount }}
+                    </div>
+                    <button type="submit" class="btn-primary">Set Budget</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="dashboard-grid">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">⚡</span>
+                    <h3 class="card-title">Quick Actions</h3>
+                </div>
+                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <a href="{% url 'expenses:add_expense' %}" class="btn-primary">Add Expense</a>
+                    <a href="{% url 'expenses:list_expenses' %}" class="btn-primary">View All</a>
+                    <a href="{% url 'expenses:analytics' %}" class="btn-primary">Analytics</a>
+                    <a href="{% url 'accounts:logout' %}" class="btn-primary" style="background: #f56565;">Logout</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Category Chart
+        fetch('/api/category-chart-data/')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('categoryChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.data,
+                            backgroundColor: data.colors,
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ₹' + context.parsed.toFixed(2);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+
+        // Monthly Chart
+        fetch('/api/monthly-chart-data/')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('monthlyChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Monthly Expenses',
+                            data: data.data,
+                            borderColor: '#4299e1',
+                            backgroundColor: 'rgba(66, 153, 225, 0.1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return '₹' + context.parsed.y.toFixed(2);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₹' + value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+    </script>
+</body>
+</html>

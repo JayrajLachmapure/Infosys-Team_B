@@ -1,0 +1,1161 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Analytics - BudgetWise AI</title>
+    <link rel="stylesheet" href="{% static 'css/dashboard-modern.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <div class="sidebar-logo-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <div class="sidebar-title">BudgetWise AI</div>
+                        <div class="sidebar-subtitle">Smart Finance Tracking</div>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="{% url 'expenses:dashboard' %}" class="nav-item">
+                    <div class="nav-icon">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{% url 'expenses:add_expense' %}" class="nav-item">
+                    <div class="nav-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <span>Add Expense</span>
+                </a>
+                <a href="{% url 'expenses:list_expenses' %}" class="nav-item">
+                    <div class="nav-icon">
+                        <i class="fas fa-list-alt"></i>
+                    </div>
+                    <span>All Expenses</span>
+                </a>
+                <a href="{% url 'expenses:analytics' %}" class="nav-item active">
+                    <div class="nav-icon">
+                        <i class="fas fa-chart-bar"></i>
+                    </div>
+                    <span>Analytics</span>
+                </a>
+                <a href="{% url 'ai_engine:ai_dashboard' %}" class="nav-item">
+                    <div class="nav-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <span>AI Insights</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                    <div class="user-details">
+                        <div class="user-name">{{ user.username|title }}</div>
+                        <div class="user-email">{{ user.email }}</div>
+                    </div>
+                </div>
+                <a href="{% url 'accounts:logout' %}" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Page Header -->
+            <div class="dashboard-header">
+                <h1 class="dashboard-title">Advanced Analytics</h1>
+                <p class="dashboard-subtitle">Business Intelligence Dashboard with Interactive Insights</p>
+            </div>   
+         <!-- KPI Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <div class="kpi-icon revenue">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="kpi-trend positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>+12.5%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-content">
+                        <div class="kpi-value">{{ kpi_data.total_expenses.formatted }}</div>
+                        <div class="kpi-label">Total Expenses</div>
+                        <div class="kpi-period">This Month</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <div class="kpi-icon transactions">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="kpi-trend neutral">
+                            <i class="fas fa-minus"></i>
+                            <span>0%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-content">
+                        <div class="kpi-value">{{ kpi_data.transaction_count.value }}</div>
+                        <div class="kpi-label">Transactions</div>
+                        <div class="kpi-period">This Month</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <div class="kpi-icon average">
+                            <i class="fas fa-calculator"></i>
+                        </div>
+                        <div class="kpi-trend negative">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>-5.2%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-content">
+                        <div class="kpi-value">{{ kpi_data.average_transaction.formatted }}</div>
+                        <div class="kpi-label">Avg Transaction</div>
+                        <div class="kpi-period">Per Expense</div>
+                    </div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <div class="kpi-icon budget">
+                            <i class="fas fa-bullseye"></i>
+                        </div>
+                        <div class="kpi-trend {% if budget_status.percentage > 100 %}negative{% elif budget_status.percentage > 80 %}warning{% else %}positive{% endif %}">
+                            <i class="fas fa-{% if budget_status.percentage > 100 %}exclamation-triangle{% else %}check{% endif %}"></i>
+                            <span>{{ budget_status.percentage|floatformat:1 }}%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-content">
+                        <div class="kpi-value">₹{{ budget_status.remaining|floatformat:0 }}</div>
+                        <div class="kpi-label">Budget Status</div>
+                        <div class="kpi-period">{% if budget_status.remaining >= 0 %}Remaining{% else %}Over Budget{% endif %}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Charts Grid -->
+            <div class="analytics-grid">
+                <!-- Spending Trend Analysis -->
+                <div class="chart-card large">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <i class="fas fa-chart-area"></i>
+                            Spending Trend Analysis
+                        </div>
+                        <div class="chart-controls">
+                            <select id="trendPeriod" class="chart-select">
+                                <option value="7">Last 7 Days</option>
+                                <option value="30" selected>Last 30 Days</option>
+                                <option value="90">Last 90 Days</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-container large">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Category Distribution -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <i class="fas fa-chart-pie"></i>
+                            Category Distribution
+                        </div>
+                        <div class="chart-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Monthly Comparison -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <i class="fas fa-chart-bar"></i>
+                            Monthly Comparison
+                        </div>
+                        <div class="chart-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Expense Heatmap -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <i class="fas fa-th"></i>
+                            Expense Heatmap
+                        </div>
+                        <div class="chart-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="heatmapChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Budget vs Actual -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <i class="fas fa-balance-scale"></i>
+                            Budget vs Actual
+                        </div>
+                        <div class="chart-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="budgetChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Top Categories -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <i class="fas fa-trophy"></i>
+                            Top Categories
+                        </div>
+                        <div class="chart-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="topCategoriesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Expense Forecast Chart -->
+            {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
+            <div class="forecast-section fade-in">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <i class="fas fa-chart-line"></i>
+                        AI Expense Forecast
+                    </h2>
+                    <p class="section-subtitle">Machine learning predictions based on your spending patterns</p>
+                </div>
+                
+                <div class="forecast-chart-container">
+                    <canvas id="analyticsForecastChart" width="400" height="200"></canvas>
+                </div>
+                
+                <div class="forecast-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #3B82F6;"></div>
+                        <span>Historical Data</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #EF4444;"></div>
+                        <span>AI Predictions</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Insights Panel -->
+            <div class="insights-panel">
+                <div class="insights-header">
+                    <div class="insights-title">
+                        <i class="fas fa-lightbulb"></i>
+                        Business Intelligence Insights
+                    </div>
+                </div>
+                <div class="insights-grid">
+                    <div class="insight-card">
+                        <div class="insight-icon spending">
+                            <i class="fas fa-trending-up"></i>
+                        </div>
+                        <div class="insight-content">
+                            <h4>Spending Pattern</h4>
+                            <p>Your highest spending occurs on weekends, particularly Saturdays with 35% more expenses than weekdays.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="insight-card">
+                        <div class="insight-icon category">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                        <div class="insight-content">
+                            <h4>Category Analysis</h4>
+                            <p>Food & Dining represents 40% of your expenses. Consider meal planning to optimize this category.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="insight-card">
+                        <div class="insight-icon forecast">
+                            <i class="fas fa-crystal-ball"></i>
+                        </div>
+                        <div class="insight-content">
+                            <h4>Forecast Alert</h4>
+                            <p>Based on current trends, you're likely to exceed your monthly budget by ₹2,500 if spending continues.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="insight-card">
+                        <div class="insight-icon savings">
+                            <i class="fas fa-piggy-bank"></i>
+                        </div>
+                        <div class="insight-content">
+                            <h4>Savings Opportunity</h4>
+                            <p>Reducing entertainment expenses by 20% could save you ₹3,000 monthly without impacting lifestyle significantly.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>   
+ <style>
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .kpi-card {
+            background: var(--card-background);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .kpi-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .kpi-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+        }
+
+        .kpi-icon.revenue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .kpi-icon.transactions { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+        .kpi-icon.average { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .kpi-icon.budget { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+
+        .kpi-trend {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .kpi-trend.positive { background: #f0fdf4; color: var(--accent-success); }
+        .kpi-trend.negative { background: #fef2f2; color: var(--accent-danger); }
+        .kpi-trend.neutral { background: #f3f4f6; color: var(--text-muted); }
+        .kpi-trend.warning { background: #fffbeb; color: var(--accent-warning); }
+
+        .kpi-content {
+            text-align: left;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .kpi-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .kpi-period {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .chart-card {
+            background: var(--card-background);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+            grid-column: span 6;
+        }
+
+        .chart-card.large {
+            grid-column: span 12;
+        }
+
+        .chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 24px 0;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        .chart-select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: white;
+            font-size: 14px;
+            color: var(--text-primary);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            padding: 0 24px 24px;
+        }
+
+        .chart-container.large {
+            height: 400px;
+        }
+
+        .insights-panel {
+            background: var(--card-background);
+            border-radius: var(--radius-lg);
+            padding: 32px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .insights-header {
+            margin-bottom: 24px;
+        }
+
+        .insights-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .insight-card {
+            display: flex;
+            gap: 16px;
+            padding: 20px;
+            background: var(--background-color);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .insight-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .insight-icon.spending { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .insight-icon.category { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+        .insight-icon.forecast { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+        .insight-icon.savings { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+
+        .insight-content h4 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .insight-content p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        @media (max-width: 1024px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-card,
+            .chart-card.large {
+                grid-column: span 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 16px;
+            }
+            
+            .insights-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 250px;
+            }
+            
+            .chart-container.large {
+                height: 300px;
+            }
+        }
+    </style>    
+<script>
+        // Advanced Chart Configuration
+        Chart.defaults.font.family = 'Inter, sans-serif';
+        Chart.defaults.color = '#6B7280';
+        Chart.defaults.borderColor = '#E5E7EB';
+
+        // Color Palettes
+        const colors = {
+            primary: '#4F46E5',
+            success: '#10B981',
+            warning: '#F59E0B',
+            danger: '#EF4444',
+            info: '#3B82F6',
+            purple: '#8B5CF6',
+            pink: '#EC4899',
+            cyan: '#06B6D4'
+        };
+
+        const gradients = {
+            primary: ['#667eea', '#764ba2'],
+            success: ['#10b981', '#059669'],
+            warning: ['#f59e0b', '#d97706'],
+            danger: ['#ef4444', '#dc2626'],
+            info: ['#3b82f6', '#1d4ed8']
+        };
+
+        // 1. Advanced Spending Trend Chart
+        const trendData = {{ trend_data_json|safe }};
+        const ctx = document.getElementById('trendChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.3)');
+        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.05)');
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: trendData.map(item => {
+                    const date = new Date(item.date);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }),
+                datasets: [{
+                    label: 'Daily Expenses',
+                    data: trendData.map(item => item.total),
+                    borderColor: colors.primary,
+                    backgroundColor: gradient,
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: colors.primary,
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Expenses: ₹' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#F3F4F6'
+                        },
+                        border: {
+                            display: false
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 2. Enhanced Category Distribution
+        const categoryData = {{ category_breakdown_json|safe }};
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        
+        if (categoryData && categoryData.length > 0) {
+            new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: categoryData.map(item => item.category),
+                    datasets: [{
+                        data: categoryData.map(item => item.total),
+                        backgroundColor: [
+                            colors.primary, colors.success, colors.warning, 
+                            colors.danger, colors.purple, colors.pink, 
+                            colors.cyan, colors.info
+                        ],
+                        borderWidth: 0,
+                        hoverBorderWidth: 3,
+                        hoverBorderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#1F2937',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#FFFFFF',
+                            borderColor: '#374151',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    const percentage = ((context.parsed / context.dataset.data.reduce((a, b) => a + b, 0)) * 100).toFixed(1);
+                                    return context.label + ': ₹' + context.parsed.toLocaleString() + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            // Show "No data" message
+            categoryCtx.font = "16px Inter";
+            categoryCtx.fillStyle = "#6B7280";
+            categoryCtx.textAlign = "center";
+            categoryCtx.fillText("No category data available", categoryCtx.canvas.width / 2, categoryCtx.canvas.height / 2);
+        }
+
+        // 3. Monthly Comparison Bar Chart
+        const monthlyData = {{ monthly_totals_json|safe }};
+        const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+        
+        if (monthlyData && monthlyData.length > 0) {
+            new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: monthlyData.map(item => {
+                        const date = new Date(item.month + '-01');
+                        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                    }),
+                    datasets: [{
+                        label: 'Monthly Expenses',
+                        data: monthlyData.map(item => item.total),
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                        borderWidth: 0,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#1F2937',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#FFFFFF',
+                            borderColor: '#374151',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Expenses: ₹' + context.parsed.y.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            border: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#F3F4F6'
+                            },
+                            border: {
+                                display: false
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '₹' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            // Show "No data" message
+            monthlyCtx.font = "16px Inter";
+            monthlyCtx.fillStyle = "#6B7280";
+            monthlyCtx.textAlign = "center";
+            monthlyCtx.fillText("No monthly data available", monthlyCtx.canvas.width / 2, monthlyCtx.canvas.height / 2);
+        }
+
+        // 4. Expense Heatmap (Simulated with Matrix Chart)
+        const heatmapCtx = document.getElementById('heatmapChart').getContext('2d');
+        const heatmapData = generateHeatmapData();
+        
+        new Chart(heatmapCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Daily Expenses',
+                    data: heatmapData,
+                    backgroundColor: function(context) {
+                        const value = context.parsed.y;
+                        const alpha = Math.min(value / 5000, 1); // Normalize to max 5000
+                        return `rgba(79, 70, 229, ${alpha})`;
+                    },
+                    pointRadius: 8,
+                    pointHoverRadius: 10
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            title: function(context) {
+                                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                                return days[context[0].parsed.x] + ' - Week ' + (Math.floor(context[0].parsed.y / 1000) + 1);
+                            },
+                            label: function(context) {
+                                return 'Expenses: ₹' + (context.parsed.y % 1000 * 10).toFixed(0);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        min: 0,
+                        max: 6,
+                        ticks: {
+                            stepSize: 1,
+                            callback: function(value) {
+                                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                                return days[value];
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        min: 0,
+                        max: 4000,
+                        ticks: {
+                            stepSize: 1000,
+                            callback: function(value) {
+                                return 'Week ' + (Math.floor(value / 1000) + 1);
+                            }
+                        },
+                        grid: {
+                            color: '#F3F4F6'
+                        }
+                    }
+                }
+            }
+        });
+
+        // 5. Budget vs Actual Comparison
+        const budgetCtx = document.getElementById('budgetChart').getContext('2d');
+        new Chart(budgetCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Budget',
+                    data: [50000, 48000, 50000, 52000, 50000, 51000],
+                    backgroundColor: colors.success,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                }, {
+                    label: 'Actual',
+                    data: [45000, 52000, 48000, 49000, 53000, 47000],
+                    backgroundColor: colors.primary,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#F3F4F6'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // 6. Top Categories Horizontal Bar
+        const topCategoriesCtx = document.getElementById('topCategoriesChart').getContext('2d');
+        new Chart(topCategoriesCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Food', 'Transport', 'Shopping', 'Entertainment', 'Bills'],
+                datasets: [{
+                    label: 'Amount',
+                    data: [15000, 8000, 12000, 6000, 9000],
+                    backgroundColor: [
+                        colors.primary,
+                        colors.success,
+                        colors.warning,
+                        colors.danger,
+                        colors.info
+                    ],
+                    borderRadius: 8,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Amount: ₹' + context.parsed.x.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#F3F4F6'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // AI Expense Forecast Chart for Analytics
+        {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
+        const analyticsForecastCtx = document.getElementById('analyticsForecastChart').getContext('2d');
+        const analyticsForecastData = {{ ai_forecast_chart.chart_data_json|safe }};
+        
+        const analyticsHistoricalData = analyticsForecastData.filter(item => !item.is_predicted);
+        const analyticsPredictedData = analyticsForecastData.filter(item => item.is_predicted);
+        
+        new Chart(analyticsForecastCtx, {
+            type: 'line',
+            data: {
+                labels: analyticsForecastData.map(item => item.month_name),
+                datasets: [{
+                    label: 'Historical Expenses',
+                    data: analyticsHistoricalData.map(item => ({ 
+                        x: item.month_name, 
+                        y: item.total 
+                    })),
+                    borderColor: '#3B82F6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#3B82F6',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    fill: false,
+                    tension: 0.4
+                }, {
+                    label: 'AI Predictions',
+                    data: analyticsPredictedData.map(item => ({ 
+                        x: item.month_name, 
+                        y: item.total 
+                    })),
+                    borderColor: '#EF4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    borderWidth: 3,
+                    borderDash: [10, 5],
+                    pointBackgroundColor: '#EF4444',
+                    pointBorderColor: '#FFFFFF',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    fill: false,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { 
+                            usePointStyle: true, 
+                            padding: 20,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#374151',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const type = context.dataset.label;
+                                const value = '₹' + context.parsed.y.toLocaleString();
+                                return type + ': ' + value;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { display: false },
+                        title: { 
+                            display: true, 
+                            text: 'Month',
+                            font: { size: 12 }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: '#F3F4F6' },
+                        title: { 
+                            display: true, 
+                            text: 'Amount (₹)',
+                            font: { size: 12 }
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endif %}
+
+        // Helper function to generate heatmap data
+        function generateHeatmapData() {
+            const data = [];
+            for (let week = 0; week < 4; week++) {
+                for (let day = 0; day < 7; day++) {
+                    data.push({
+                        x: day,
+                        y: week * 1000 + Math.random() * 500 + 200
+                    });
+                }
+            }
+            return data;
+        }
+
+        // Period selector functionality
+        document.getElementById('trendPeriod').addEventListener('change', function(e) {
+            // Reload trend chart with new period
+            console.log('Period changed to:', e.target.value);
+            // Implementation would fetch new data based on selected period
+        });
+    </script>
+</body>
+</html>
