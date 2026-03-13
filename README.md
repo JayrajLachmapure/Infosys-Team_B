@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # BudgetWise - AI-Based Expense Forecasting Tool
 
 **Complete Personal Finance Management with Machine Learning**
@@ -403,3 +404,7 @@ If you find this project useful, please consider giving it a star!
 ---
 
 **Built with ❤️ using Django, PostgreSQL, and Machine Learning**
+=======
+# Infosys-Team_B
+Team Project
+>>>>>>> 5306a5cb64b7c68146fe439803e21bfc9dc4119b
