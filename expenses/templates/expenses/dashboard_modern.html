@@ -71,8 +71,24 @@
         <main class="main-content">
             <!-- Dashboard Header -->
             <div class="dashboard-header">
-                <h1 class="dashboard-title">Financial Dashboard</h1>
-                <p class="dashboard-subtitle">Welcome back, {{ user.username|title }}! Here's your financial overview for {{ current_month }}.</p>
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1 class="dashboard-title">Financial Dashboard</h1>
+                        <p class="dashboard-subtitle">Welcome back, {{ user.username|title }}! Here's your financial overview for {{ selected_month_display }}.</p>
+                    </div>
+                    <div class="header-right">
+                        <div class="month-selector">
+                            <label for="month-select" class="month-label">View Month:</label>
+                            <select id="month-select" class="month-select" onchange="changeMonth(this.value)">
+                                {% for month_value, month_display in month_choices %}
+                                <option value="{{ month_value }}" {% if month_value == selected_month %}selected{% endif %}>
+                                    {{ month_display }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Usage Alerts -->
@@ -110,7 +126,7 @@
                     <div class="card-footer">
                         <div class="card-trend neutral">
                             <i class="fas fa-calendar-alt"></i>
-                            <span>This month</span>
+                            <span>{{ selected_month_display }}</span>
                         </div>
                     </div>
                 </div>
@@ -155,7 +171,7 @@
                     <div class="card-footer">
                         <div class="card-trend neutral">
                             <i class="fas fa-calendar-alt"></i>
-                            <span>This month</span>
+                            <span>{{ selected_month_display }}</span>
                         </div>
                     </div>
                 </div>
@@ -200,13 +216,13 @@
                         <div class="card-trend {{ kpi_data.savings_ratio.trend }}">
                             {% if kpi_data.savings_ratio.trend == 'positive' %}
                                 <i class="fas fa-arrow-up"></i>
-                                <span>+{{ kpi_data.savings_ratio.trend_percentage }}% vs avg</span>
+                                <span>{{ kpi_data.savings_ratio.comparison_text }}</span>
                             {% elif kpi_data.savings_ratio.trend == 'negative' %}
                                 <i class="fas fa-arrow-down"></i>
-                                <span>-{{ kpi_data.savings_ratio.trend_percentage }}% vs avg</span>
+                                <span>{{ kpi_data.savings_ratio.comparison_text }}</span>
                             {% else %}
                                 <i class="fas fa-minus"></i>
-                                <span>vs previous months</span>
+                                <span>{{ kpi_data.savings_ratio.comparison_text }}</span>
                             {% endif %}
                         </div>
                     </div>
@@ -232,16 +248,26 @@
                             <div class="insight-icon">
                                 <i class="fas fa-crystal-ball"></i>
                             </div>
-                            <div class="insight-title">Next Day Prediction</div>
+                            <div class="insight-title">
+                                {% if is_current_month %}
+                                    Next Day Prediction
+                                {% elif is_future_month %}
+                                    Future Month
+                                {% else %}
+                                    Historical Data
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="insight-content">
-                            {% if ai_prediction.success %}
+                            {% if is_current_month and ai_prediction.success %}
                                 <div class="insight-value">₹{{ ai_prediction.predicted_amount }}</div>
                                 <p>Based on your last 10 days of spending patterns</p>
                                 <small>Confidence: {{ ai_prediction.confidence }}% • Trend: {{ ai_prediction.trend|title }}</small>
                             {% else %}
                                 <p>{{ ai_prediction.message }}</p>
-                                <small>Add more expense data to enable predictions</small>
+                                {% if is_current_month %}
+                                    <small>Add more expense data to enable predictions</small>
+                                {% endif %}
                             {% endif %}
                         </div>
                     </div>
@@ -560,6 +586,13 @@
         // Mobile sidebar toggle
         function toggleSidebar() {
             document.querySelector('.sidebar').classList.toggle('open');
+        }
+        
+        // Month selector functionality
+        function changeMonth(selectedMonth) {
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('month', selectedMonth);
+            window.location.href = currentUrl.toString();
         }
     </script>
 </body>

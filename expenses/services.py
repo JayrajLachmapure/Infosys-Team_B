@@ -5,6 +5,7 @@ from django.db.models import Sum, Count, Q
 from django.db.models.functions import TruncMonth
 from datetime import datetime, timedelta
 from decimal import Decimal
+from dateutil.relativedelta import relativedelta
 from .models import Expense, Budget
 
 
@@ -248,82 +249,181 @@ class UnifiedDataService:
     Centralized service for consistent data across all UI pages
     """
     
-    def __init__(self, user):
+    def __init__(self, user, selected_month=None):
         self.user = user
+        self.selected_month = selected_month or datetime.now().strftime('%Y-%m')
+        self.selected_date = datetime.strptime(self.selected_month, '%Y-%m')
         self.analytics = ExpenseAnalytics(user)
     
     def get_consistent_summary(self):
         """Get consistent summary data for all pages"""
-        summary = self.analytics.get_dashboard_summary()
+        # Get data for selected month instead of current month
+        selected_year = self.selected_date.year
+        selected_month_num = self.selected_date.month
         
-        # Add calculated fields for consistency
-        summary['average_transaction'] = (
-            summary['total_expenses'] / summary['transaction_count'] 
-            if summary['transaction_count'] > 0 else Decimal('0.00')
+        # Get expenses for selected month
+        total_expenses = Expense.objects.filter(
+            user=self.user,
+            date__year=selected_year,
+            date__month=selected_month_num
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Get transaction count for selected month
+        transaction_count = Expense.objects.filter(
+            user=self.user,
+            date__year=selected_year,
+            date__month=selected_month_num
+        ).count()
+        
+        # Get highest category for selected month
+        highest_category = self.analytics.get_category_breakdown(selected_month_num, selected_year)
+        highest_category_data = {
+            'category': highest_category[0]['category'] if highest_category else 'None',
+            'amount': highest_category[0]['total'] if highest_category else Decimal('0.00')
+        }
+        
+        # Get budget status for selected month
+        budget = Budget.objects.filter(
+            user=self.user,
+            month=self.selected_month
+        ).first()
+        
+        budget_status = {
+            'budget': budget.amount if budget else Decimal('0.00'),
+            'spent': total_expenses,
+            'remaining': (budget.amount - total_expenses) if budget else Decimal('0.00'),
+            'percentage': (total_expenses / budget.amount * 100) if budget and budget.amount > 0 else 0
+        }
+        
+        # Calculate average transaction
+        average_transaction = (
+            total_expenses / transaction_count 
+            if transaction_count > 0 else Decimal('0.00')
         )
         
-        # Ensure all decimal values are properly formatted
-        summary['total_expenses_formatted'] = f"₹{summary['total_expenses']:,.0f}"
-        summary['average_transaction_formatted'] = f"₹{summary['average_transaction']:,.0f}"
+        summary = {
+            'total_expenses': total_expenses,
+            'transaction_count': transaction_count,
+            'highest_category': highest_category_data,
+            'budget_status': budget_status,
+            'category_breakdown': highest_category,
+            'average_transaction': average_transaction,
+            'total_expenses_formatted': f"₹{total_expenses:,.0f}",
+            'average_transaction_formatted': f"₹{average_transaction:,.0f}",
+            'selected_month': self.selected_month,
+            'selected_month_display': self.selected_date.strftime('%B %Y')
+        }
         
         return summary
     
     def get_savings_ratio(self):
-        """Calculate savings ratio comparing current month to previous months"""
-        now = datetime.now()
-        
-        # Get current month budget and expenses
-        current_month_str = now.strftime('%Y-%m')
-        current_budget = Budget.objects.filter(
+        """Calculate savings ratio comparing selected month to previous months"""
+        # Get selected month budget and expenses
+        selected_budget = Budget.objects.filter(
             user=self.user,
-            month=current_month_str
+            month=self.selected_month
         ).first()
         
-        current_expenses = self.analytics.get_current_month_total()
-        current_savings = (current_budget.amount - current_expenses) if current_budget and current_budget.amount > current_expenses else Decimal('0.00')
+        selected_expenses = Expense.objects.filter(
+            user=self.user,
+            date__year=self.selected_date.year,
+            date__month=self.selected_date.month
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
-        # Get previous 3 months average savings
-        previous_months_data = []
+        # Calculate selected month savings (only positive savings count)
+        if selected_budget and selected_budget.amount > 0:
+            selected_savings = max(Decimal('0.00'), selected_budget.amount - selected_expenses)
+        else:
+            selected_savings = Decimal('0.00')
+        
+        # Get previous 3 months savings data
+        previous_months_savings = []
         for i in range(1, 4):  # Previous 3 months
-            prev_date = now - timedelta(days=i * 30)
+            prev_date = self.selected_date - relativedelta(months=i)
             prev_month_str = prev_date.strftime('%Y-%m')
             
+            # Get budget for previous month
             prev_budget = Budget.objects.filter(
                 user=self.user,
                 month=prev_month_str
             ).first()
             
+            # Get expenses for previous month
             prev_expenses = Expense.objects.filter(
                 user=self.user,
                 date__year=prev_date.year,
                 date__month=prev_date.month
             ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
             
-            prev_savings = (prev_budget.amount - prev_expenses) if prev_budget and prev_budget.amount > prev_expenses else Decimal('0.00')
-            previous_months_data.append(prev_savings)
+            # Calculate savings for previous month (only positive savings count)
+            if prev_budget and prev_budget.amount > 0:
+                prev_savings = max(Decimal('0.00'), prev_budget.amount - prev_expenses)
+            else:
+                prev_savings = Decimal('0.00')
+            
+            previous_months_savings.append(prev_savings)
         
-        # Calculate average of previous months
-        avg_previous_savings = sum(previous_months_data) / len(previous_months_data) if previous_months_data else Decimal('0.00')
+        # Calculate average of previous months (only non-zero values)
+        non_zero_savings = [s for s in previous_months_savings if s > 0]
+        if non_zero_savings:
+            avg_previous_savings = sum(non_zero_savings) / len(non_zero_savings)
+        else:
+            avg_previous_savings = Decimal('0.00')
         
         # Calculate ratio and trend
-        if avg_previous_savings > 0:
-            ratio = (current_savings / avg_previous_savings) * 100
-            trend = 'positive' if ratio >= 100 else 'negative'
-            trend_percentage = abs(ratio - 100)
+        if avg_previous_savings > 0 and selected_savings > 0:
+            # Both selected and previous have savings - calculate percentage change
+            ratio = (selected_savings / avg_previous_savings) * 100
+            if ratio >= 110:  # 10% or more improvement
+                trend = 'positive'
+                trend_percentage = round(ratio - 100, 1)
+            elif ratio <= 90:  # 10% or more decline
+                trend = 'negative' 
+                trend_percentage = round(100 - ratio, 1)
+            else:  # Within 10% range
+                trend = 'neutral'
+                trend_percentage = round(abs(ratio - 100), 1)
+        elif selected_savings > 0 and avg_previous_savings == 0:
+            # Selected month has savings, previous months had none
+            ratio = 100
+            trend = 'positive'
+            trend_percentage = 100
+        elif selected_savings == 0 and avg_previous_savings > 0:
+            # Previous months had savings, selected month has none
+            ratio = 0
+            trend = 'negative'
+            trend_percentage = 100
         else:
-            ratio = 100 if current_savings > 0 else 0
-            trend = 'positive' if current_savings > 0 else 'neutral'
+            # Both selected and previous have no savings
+            ratio = 0
+            trend = 'neutral'
             trend_percentage = 0
         
         return {
-            'current_savings': current_savings,
+            'current_savings': selected_savings,
             'avg_previous_savings': avg_previous_savings,
             'ratio': round(ratio, 1),
             'trend': trend,
-            'trend_percentage': round(trend_percentage, 1),
-            'formatted_current': f"₹{current_savings:,.0f}",
-            'formatted_previous': f"₹{avg_previous_savings:,.0f}"
+            'trend_percentage': trend_percentage,
+            'formatted_current': f"₹{selected_savings:,.0f}",
+            'formatted_previous': f"₹{avg_previous_savings:,.0f}",
+            'comparison_text': self._get_savings_comparison_text(selected_savings, avg_previous_savings, trend, trend_percentage)
         }
+    
+    def _get_savings_comparison_text(self, current, previous, trend, percentage):
+        """Generate descriptive text for savings comparison"""
+        if trend == 'positive':
+            if previous == 0:
+                return "New savings this month!"
+            else:
+                return f"+{percentage}% vs avg"
+        elif trend == 'negative':
+            if current == 0:
+                return "No savings this month"
+            else:
+                return f"-{percentage}% vs avg"
+        else:
+            return "Similar to average"
 
     def get_kpi_data(self):
         """Get KPI data with trend calculations"""
@@ -355,7 +455,7 @@ class UnifiedDataService:
     def get_chart_data(self):
         """Get consistent chart data for all pages"""
         return {
-            'category_breakdown': self.analytics.get_category_breakdown(),
+            'category_breakdown': self.analytics.get_category_breakdown(self.selected_date.month, self.selected_date.year),
             'monthly_totals': self.analytics.get_monthly_totals(12),
             'spending_trend': self.analytics.get_spending_trend(30)
         }

@@ -34,18 +34,36 @@ class BudgetForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Generate month choices for current and next 11 months
+        # Generate month choices for previous 12 months, current month, and next 12 months
         months = []
         current_date = datetime.now()
-        for i in range(12):
-            month_date = datetime(current_date.year, current_date.month, 1)
+        
+        # Add previous 12 months
+        for i in range(12, 0, -1):
+            if current_date.month - i <= 0:
+                month_date = datetime(current_date.year - 1, 12 + (current_date.month - i), 1)
+            else:
+                month_date = datetime(current_date.year, current_date.month - i, 1)
+            month_str = month_date.strftime('%Y-%m')
+            month_display = month_date.strftime('%B %Y')
+            months.append((month_str, month_display))
+        
+        # Add current and next 12 months
+        for i in range(13):  # 0 to 12 (current + next 12)
             if current_date.month + i > 12:
-                month_date = datetime(current_date.year + 1, (current_date.month + i) % 12, 1)
+                year_offset = (current_date.month + i - 1) // 12
+                month_num = ((current_date.month + i - 1) % 12) + 1
+                month_date = datetime(current_date.year + year_offset, month_num, 1)
             else:
                 month_date = datetime(current_date.year, current_date.month + i, 1)
             month_str = month_date.strftime('%Y-%m')
             month_display = month_date.strftime('%B %Y')
             months.append((month_str, month_display))
+        
+        # Set current month as default if creating new budget
+        if not self.instance.pk:
+            current_month_str = current_date.strftime('%Y-%m')
+            self.fields['month'].initial = current_month_str
         
         self.fields['month'].widget = forms.Select(
             choices=months,

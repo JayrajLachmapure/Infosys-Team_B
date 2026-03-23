@@ -18,6 +18,10 @@
             <span class="nav-icon">📋</span>
             <span>All Expenses</span>
         </a>
+        <a href="{% url 'expenses:budget_management' %}" class="nav-item {% if request.resolver_match.url_name == 'budget_management' %}active{% endif %}">
+            <span class="nav-icon">💰</span>
+            <span>Budget Management</span>
+        </a>
         <a href="{% url 'expenses:analytics' %}" class="nav-item {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
             <span class="nav-icon">📈</span>
             <span>Analytics</span>

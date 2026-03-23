@@ -15,6 +15,7 @@ urlpatterns = [
     path('expenses/', views.ListExpensesView.as_view(), name='list_expenses'),
     path('analytics/', views.AnalyticsView.as_view(), name='analytics'),
     path('set-budget/', views.SetBudgetView.as_view(), name='set_budget'),
+    path('budget-management/', views.BudgetManagementView.as_view(), name='budget_management'),
     
     # API endpoints for charts
     path('api/category-chart/', views.CategoryChartDataView.as_view(), name='category_chart'),

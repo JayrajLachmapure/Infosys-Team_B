@@ -208,6 +208,21 @@ body {
   margin-bottom: 32px;
 }
 
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.header-left {
+  flex: 1;
+}
+
+.header-right {
+  flex-shrink: 0;
+}
+
 .dashboard-title {
   font-size: 28px;
   font-weight: 700;
@@ -219,6 +234,53 @@ body {
   font-size: 16px;
   color: var(--text-secondary);
   font-weight: 400;
+}
+
+/* Month Selector */
+.month-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.month-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.month-select {
+  padding: 10px 16px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--card-background);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.month-select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.month-select:hover {
+  border-color: var(--primary-color);
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .month-selector {
+    width: 100%;
+  }
 }
 
 /* Alert System */

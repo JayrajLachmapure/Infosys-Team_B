@@ -72,8 +72,24 @@
         <main class="main-content">
             <!-- Page Header -->
             <div class="dashboard-header">
-                <h1 class="dashboard-title">Advanced Analytics</h1>
-                <p class="dashboard-subtitle">Business Intelligence Dashboard with Interactive Insights</p>
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1 class="dashboard-title">Advanced Analytics</h1>
+                        <p class="dashboard-subtitle">Business Intelligence Dashboard for {{ selected_month_display }}</p>
+                    </div>
+                    <div class="header-right">
+                        <div class="month-selector">
+                            <label for="month-select" class="month-label">View Month:</label>
+                            <select id="month-select" class="month-select" onchange="changeMonth(this.value)">
+                                {% for month_value, month_display in month_choices %}
+                                <option value="{{ month_value }}" {% if month_value == selected_month %}selected{% endif %}>
+                                    {{ month_display }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
             </div>   
             <!-- KPI Cards -->
             <div class="kpi-grid">
@@ -1256,6 +1272,13 @@
             
             console.log('All analytics charts initialized successfully');
         });
+        
+        // Month selector functionality
+        function changeMonth(selectedMonth) {
+            const currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('month', selectedMonth);
+            window.location.href = currentUrl.toString();
+        }
     </script>
 </body>
 </html>

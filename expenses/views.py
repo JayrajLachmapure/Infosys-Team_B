@@ -23,69 +23,112 @@ class DashboardView(LoginRequiredMixin, View):
     def get(self, request):
         from expenses.services import UnifiedDataService
         
-        data_service = UnifiedDataService(request.user)
+        # Get selected month from query parameter, default to current month
+        selected_month = request.GET.get('month', datetime.now().strftime('%Y-%m'))
+        
+        # Validate month format
+        try:
+            selected_date = datetime.strptime(selected_month, '%Y-%m')
+        except ValueError:
+            selected_month = datetime.now().strftime('%Y-%m')
+            selected_date = datetime.now()
+        
+        # Create data service with selected month
+        data_service = UnifiedDataService(request.user, selected_month=selected_month)
         summary = data_service.get_consistent_summary()
         kpi_data = data_service.get_kpi_data()
         
-        # Get AI prediction and insights
+        # Get AI prediction and insights (context-aware based on selected month)
         from ai_engine.forecast import predict_next_day_expense, predict_next_month_expense, get_expense_forecast_chart
         from ai_engine.insights import generate_user_insights
         import json
         
-        ai_prediction = predict_next_day_expense(request.user)
-        ai_monthly_forecast = predict_next_month_expense(request.user)
-        ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=4)
-        ai_insights = generate_user_insights(request.user)
+        current_date = datetime.now()
+        is_current_month = selected_month == current_date.strftime('%Y-%m')
+        is_future_month = selected_date > current_date
+        is_past_month = selected_date < current_date.replace(day=1)
+        
+        # Only show AI predictions for current and future months
+        if is_current_month:
+            ai_prediction = predict_next_day_expense(request.user)
+            ai_monthly_forecast = predict_next_month_expense(request.user)
+            ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=4)
+            ai_insights = generate_user_insights(request.user)
+        elif is_future_month:
+            # For future months, show forecasting data
+            ai_prediction = {'message': f'No prediction available for future month {selected_date.strftime("%B %Y")}'}
+            ai_monthly_forecast = predict_next_month_expense(request.user)
+            ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=4)
+            ai_insights = generate_user_insights(request.user)
+        else:
+            # For past months, show historical analysis instead of predictions
+            ai_prediction = {'message': f'Historical data for {selected_date.strftime("%B %Y")}'}
+            ai_monthly_forecast = {'message': f'Historical month - actual data available'}
+            ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=4)
+            ai_insights = generate_user_insights(request.user)
         
         # Serialize chart data as JSON for JavaScript
         if ai_forecast_chart and ai_forecast_chart.get('chart_data'):
             ai_forecast_chart['chart_data_json'] = json.dumps(ai_forecast_chart['chart_data'])
         
-        # Get budget form
-        current_month = datetime.now().strftime('%Y-%m')
+        # Get budget form for selected month
         budget = Budget.objects.filter(
             user=request.user,
-            month=current_month
+            month=selected_month
         ).first()
         budget_form = BudgetForm(instance=budget)
         
-        # Get recent expenses
-        recent_expenses = Expense.objects.filter(user=request.user)[:5]
+        # Get recent expenses for selected month
+        recent_expenses = Expense.objects.filter(
+            user=request.user,
+            date__year=selected_date.year,
+            date__month=selected_date.month
+        ).order_by('-date', '-created_at')[:5]
+        
+        # Generate month choices for dropdown
+        month_choices = []
+        current_date = datetime.now()
+        
+        # Add previous 12 months, current month, and next 12 months
+        for i in range(12, -13, -1):  # From 12 months ago to 12 months ahead
+            target_date = current_date - relativedelta(months=i)
+            month_str = target_date.strftime('%Y-%m')
+            month_display = target_date.strftime('%B %Y')
+            month_choices.append((month_str, month_display))
         
         # Calculate savings ratio compared to previous month
         from django.db.models.functions import TruncMonth
-        from dateutil.relativedelta import relativedelta
         
-        current_month = datetime.now().date().replace(day=1)
-        previous_month = current_month - relativedelta(months=1)
+        selected_month_date = selected_date.date().replace(day=1)
+        previous_month_date = selected_month_date - relativedelta(months=1)
         
-        # Get current month expenses
-        current_month_expenses = Expense.objects.filter(
+        # Get selected month expenses
+        selected_month_expenses = Expense.objects.filter(
             user=request.user,
-            date__gte=current_month,
-            date__lt=current_month + relativedelta(months=1)
+            date__gte=selected_month_date,
+            date__lt=selected_month_date + relativedelta(months=1)
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
         # Get previous month expenses
         previous_month_expenses = Expense.objects.filter(
             user=request.user,
-            date__gte=previous_month,
-            date__lt=current_month
+            date__gte=previous_month_date,
+            date__lt=selected_month_date
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
         # Calculate savings ratio
         savings_data = {
-            'current_month_total': float(current_month_expenses),
+            'current_month_total': float(selected_month_expenses),
             'previous_month_total': float(previous_month_expenses),
-            'savings_amount': float(previous_month_expenses - current_month_expenses),
+            'savings_amount': float(previous_month_expenses - selected_month_expenses),
             'savings_percentage': 0,
             'is_saving': False,
             'trend': 'neutral'
         }
         
         if previous_month_expenses > 0:
-            savings_data['savings_percentage'] = ((previous_month_expenses - current_month_expenses) / previous_month_expenses) * 100
-            savings_data['is_saving'] = current_month_expenses < previous_month_expenses
+            savings_data['savings_percentage'] = ((previous_month_expenses - selected_month_expenses) / previous_month_expenses) * 100
+            savings_data['is_saving'] = selected_month_expenses < previous_month_expenses
             
             if savings_data['savings_percentage'] > 5:
                 savings_data['trend'] = 'positive'
@@ -99,12 +142,17 @@ class DashboardView(LoginRequiredMixin, View):
             'kpi_data': kpi_data,
             'budget_form': budget_form,
             'recent_expenses': recent_expenses,
-            'current_month': datetime.now().strftime('%B %Y'),
+            'selected_month': selected_month,
+            'selected_month_display': selected_date.strftime('%B %Y'),
+            'month_choices': month_choices,
             'ai_prediction': ai_prediction,
             'ai_monthly_forecast': ai_monthly_forecast,
             'ai_forecast_chart': ai_forecast_chart,
             'ai_insights': ai_insights,
             'savings_data': savings_data,
+            'is_current_month': is_current_month,
+            'is_future_month': is_future_month,
+            'is_past_month': is_past_month,
         }
         
         return render(request, 'expenses/dashboard_modern.html', context)
@@ -224,19 +272,56 @@ class AnalyticsView(LoginRequiredMixin, View):
         from ai_engine.forecast import predict_next_month_expense, get_expense_forecast_chart, get_spending_analysis
         import json
         
-        data_service = UnifiedDataService(request.user)
+        # Get selected month from query parameter, default to current month
+        selected_month = request.GET.get('month', datetime.now().strftime('%Y-%m'))
+        
+        # Validate month format
+        try:
+            selected_date = datetime.strptime(selected_month, '%Y-%m')
+        except ValueError:
+            selected_month = datetime.now().strftime('%Y-%m')
+            selected_date = datetime.now()
+        
+        # Create data service with selected month
+        data_service = UnifiedDataService(request.user, selected_month=selected_month)
         summary = data_service.get_consistent_summary()
         kpi_data = data_service.get_kpi_data()
         chart_data = data_service.get_chart_data()
         
-        # AI Forecasting data
-        ai_monthly_forecast = predict_next_month_expense(request.user)
-        ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=6)
-        spending_analysis = get_spending_analysis(request.user)
+        # AI Forecasting data (context-aware for selected month)
+        current_date_now = datetime.now()
+        is_current_month = selected_month == current_date_now.strftime('%Y-%m')
+        is_future_month = selected_date > current_date_now
+        is_past_month = selected_date < current_date_now.replace(day=1)
+        
+        # Context-aware AI predictions
+        if is_current_month:
+            ai_monthly_forecast = predict_next_month_expense(request.user)
+            ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=6)
+            spending_analysis = get_spending_analysis(request.user)
+        elif is_future_month:
+            ai_monthly_forecast = predict_next_month_expense(request.user)
+            ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=6)
+            spending_analysis = {'message': f'Future month analysis for {selected_date.strftime("%B %Y")}'}
+        else:
+            ai_monthly_forecast = {'message': f'Historical data for {selected_date.strftime("%B %Y")}'}
+            ai_forecast_chart = get_expense_forecast_chart(request.user, months_ahead=6)
+            spending_analysis = {'message': f'Historical analysis for {selected_date.strftime("%B %Y")}'}
         
         # Serialize chart data as JSON for JavaScript
         if ai_forecast_chart and ai_forecast_chart.get('chart_data'):
             ai_forecast_chart['chart_data_json'] = json.dumps(ai_forecast_chart['chart_data'])
+        
+        # Generate month choices for dropdown
+        month_choices = []
+        current_date = datetime.now()
+        
+        # Add previous 12 months, current month, and next 12 months
+        for i in range(12, -13, -1):  # From 12 months ago to 12 months ahead
+            target_date = current_date - relativedelta(months=i)
+            month_str = target_date.strftime('%Y-%m')
+            month_display = target_date.strftime('%B %Y')
+            month_choices.append((month_str, month_display))
         
         # Serialize other chart data for JavaScript
         def serialize_chart_data(data):
@@ -262,14 +347,18 @@ class AnalyticsView(LoginRequiredMixin, View):
         category_breakdown_json = json.dumps(category_breakdown_serialized)
         monthly_totals_json = json.dumps(monthly_totals_serialized)
         
-        # Generate trend data (daily expenses for last 30 days)
-        from datetime import datetime, timedelta
+        # Generate trend data (daily expenses for selected month)
+        from datetime import timedelta
         from django.db.models import Sum
         from django.db.models.functions import TruncDate
         from expenses.models import Expense
         
-        end_date = datetime.now().date()
-        start_date = end_date - timedelta(days=30)
+        # Get start and end dates for selected month
+        start_date = selected_date.date().replace(day=1)
+        if selected_date.month == 12:
+            end_date = selected_date.date().replace(year=selected_date.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            end_date = selected_date.date().replace(month=selected_date.month + 1, day=1) - timedelta(days=1)
         
         daily_expenses = Expense.objects.filter(
             user=request.user,
@@ -281,7 +370,7 @@ class AnalyticsView(LoginRequiredMixin, View):
             total=Sum('amount')
         ).order_by('day')
         
-        # Create trend data
+        # Create trend data for selected month
         trend_data = []
         current_date = start_date
         while current_date <= end_date:
@@ -296,38 +385,37 @@ class AnalyticsView(LoginRequiredMixin, View):
         
         # Calculate savings ratio compared to previous month
         from django.db.models.functions import TruncMonth
-        from dateutil.relativedelta import relativedelta
         
-        current_month = datetime.now().date().replace(day=1)
-        previous_month = current_month - relativedelta(months=1)
+        selected_month_date = selected_date.date().replace(day=1)
+        previous_month_date = selected_month_date - relativedelta(months=1)
         
-        # Get current month expenses
-        current_month_expenses = Expense.objects.filter(
+        # Get selected month expenses
+        selected_month_expenses = Expense.objects.filter(
             user=request.user,
-            date__gte=current_month,
-            date__lt=current_month + relativedelta(months=1)
+            date__gte=selected_month_date,
+            date__lt=selected_month_date + relativedelta(months=1)
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
         # Get previous month expenses
         previous_month_expenses = Expense.objects.filter(
             user=request.user,
-            date__gte=previous_month,
-            date__lt=current_month
+            date__gte=previous_month_date,
+            date__lt=selected_month_date
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
         
         # Calculate savings ratio
         savings_data = {
-            'current_month_total': float(current_month_expenses),
+            'current_month_total': float(selected_month_expenses),
             'previous_month_total': float(previous_month_expenses),
-            'savings_amount': float(previous_month_expenses - current_month_expenses),
+            'savings_amount': float(previous_month_expenses - selected_month_expenses),
             'savings_percentage': 0,
             'is_saving': False,
             'trend': 'neutral'
         }
         
         if previous_month_expenses > 0:
-            savings_data['savings_percentage'] = ((previous_month_expenses - current_month_expenses) / previous_month_expenses) * 100
-            savings_data['is_saving'] = current_month_expenses < previous_month_expenses
+            savings_data['savings_percentage'] = ((previous_month_expenses - selected_month_expenses) / previous_month_expenses) * 100
+            savings_data['is_saving'] = selected_month_expenses < previous_month_expenses
             
             if savings_data['savings_percentage'] > 5:
                 savings_data['trend'] = 'positive'
@@ -353,6 +441,12 @@ class AnalyticsView(LoginRequiredMixin, View):
             'monthly_totals_json': monthly_totals_json,
             'trend_data_json': trend_data_json,
             'savings_data': savings_data,
+            'selected_month': selected_month,
+            'selected_month_display': selected_date.strftime('%B %Y'),
+            'month_choices': month_choices,
+            'is_current_month': is_current_month,
+            'is_future_month': is_future_month,
+            'is_past_month': is_past_month,
         }
         
         return render(request, 'expenses/analytics_modern.html', context)
@@ -384,6 +478,89 @@ class SetBudgetView(LoginRequiredMixin, View):
             messages.error(request, 'Invalid budget data. Please try again.')
         
         return redirect('expenses:dashboard')
+
+
+class BudgetManagementView(LoginRequiredMixin, View):
+    """
+    Comprehensive budget management page.
+    """
+    def get(self, request):
+        # Get all user budgets
+        budgets = Budget.objects.filter(user=request.user).order_by('-month')
+        
+        # Get budget form
+        budget_form = BudgetForm()
+        
+        # Generate budget overview for last 12 months
+        budget_overview = []
+        current_date = datetime.now()
+        
+        for i in range(12):
+            if current_date.month - i <= 0:
+                month_date = datetime(current_date.year - 1, 12 + (current_date.month - i), 1)
+            else:
+                month_date = datetime(current_date.year, current_date.month - i, 1)
+            
+            month_str = month_date.strftime('%Y-%m')
+            month_display = month_date.strftime('%B %Y')
+            
+            # Get budget for this month
+            budget = budgets.filter(month=month_str).first()
+            
+            # Get expenses for this month
+            expenses = Expense.objects.filter(
+                user=request.user,
+                date__year=month_date.year,
+                date__month=month_date.month
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            
+            # Calculate savings and usage
+            budget_amount = budget.amount if budget else Decimal('0.00')
+            savings = budget_amount - expenses if budget_amount > 0 else Decimal('0.00')
+            usage_percentage = (expenses / budget_amount * 100) if budget_amount > 0 else 0
+            
+            budget_overview.append({
+                'month': month_str,
+                'month_display': month_display,
+                'budget': budget,
+                'budget_amount': budget_amount,
+                'expenses': expenses,
+                'savings': savings,
+                'usage_percentage': min(100, usage_percentage),
+                'is_over_budget': expenses > budget_amount if budget_amount > 0 else False,
+                'has_budget': budget is not None
+            })
+        
+        context = {
+            'budgets': budgets,
+            'budget_form': budget_form,
+            'budget_overview': budget_overview,
+        }
+        
+        return render(request, 'expenses/budget_management.html', context)
+    
+    def post(self, request):
+        # Handle budget creation/update
+        form = BudgetForm(request.POST)
+        
+        if form.is_valid():
+            month = form.cleaned_data['month']
+            amount = form.cleaned_data['amount']
+            
+            # Update or create budget
+            budget, created = Budget.objects.update_or_create(
+                user=request.user,
+                month=month,
+                defaults={'amount': amount}
+            )
+            
+            action = "set" if created else "updated"
+            month_display = datetime.strptime(month, '%Y-%m').strftime('%B %Y')
+            messages.success(request, f'Budget {action} successfully for {month_display}!')
+        else:
+            messages.error(request, 'Invalid budget data. Please try again.')
+        
+        return redirect('expenses:budget_management')
 
 
 # API Views for Chart Data
