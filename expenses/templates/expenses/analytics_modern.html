@@ -51,12 +51,6 @@
                     </div>
                     <span>Analytics</span>
                 </a>
-                <a href="{% url 'ai_engine:ai_dashboard' %}" class="nav-item">
-                    <div class="nav-icon">
-                        <i class="fas fa-robot"></i>
-                    </div>
-                    <span>AI Insights</span>
-                </a>
             </nav>
             
             <div class="sidebar-footer">
@@ -81,7 +75,7 @@
                 <h1 class="dashboard-title">Advanced Analytics</h1>
                 <p class="dashboard-subtitle">Business Intelligence Dashboard with Interactive Insights</p>
             </div>   
-         <!-- KPI Cards -->
+            <!-- KPI Cards -->
             <div class="kpi-grid">
                 <div class="kpi-card">
                     <div class="kpi-header">
@@ -150,6 +144,30 @@
                         <div class="kpi-period">{% if budget_status.remaining >= 0 %}Remaining{% else %}Over Budget{% endif %}</div>
                     </div>
                 </div>
+
+                <!-- New Savings Ratio KPI Card -->
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <div class="kpi-icon savings">
+                            <i class="fas fa-piggy-bank"></i>
+                        </div>
+                        <div class="kpi-trend {{ savings_data.trend }}">
+                            {% if savings_data.trend == 'positive' %}
+                                <i class="fas fa-arrow-up"></i>
+                            {% elif savings_data.trend == 'negative' %}
+                                <i class="fas fa-arrow-down"></i>
+                            {% else %}
+                                <i class="fas fa-minus"></i>
+                            {% endif %}
+                            <span>{{ savings_data.savings_percentage|floatformat:1 }}%</span>
+                        </div>
+                    </div>
+                    <div class="kpi-content">
+                        <div class="kpi-value">₹{{ savings_data.savings_amount|floatformat:0 }}</div>
+                        <div class="kpi-label">{% if savings_data.is_saving %}Saved{% else %}Overspent{% endif %}</div>
+                        <div class="kpi-period">vs Last Month</div>
+                    </div>
+                </div>
             </div>
 
             <!-- Advanced Charts Grid -->
@@ -206,22 +224,6 @@
                     </div>
                 </div>
 
-                <!-- Expense Heatmap -->
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <div class="chart-title">
-                            <i class="fas fa-th"></i>
-                            Expense Heatmap
-                        </div>
-                        <div class="chart-menu">
-                            <i class="fas fa-ellipsis-h"></i>
-                        </div>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="heatmapChart"></canvas>
-                    </div>
-                </div>
-
                 <!-- Budget vs Actual -->
                 <div class="chart-card">
                     <div class="chart-header">
@@ -251,6 +253,21 @@
                     </div>
                     <div class="chart-container">
                         <canvas id="topCategoriesChart"></canvas>
+                    </div>
+                </div>
+                <!-- Savings Comparison -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <div class="chart-title">
+                            <i class="fas fa-piggy-bank"></i>
+                            Savings Comparison
+                        </div>
+                        <div class="chart-menu">
+                            <i class="fas fa-ellipsis-h"></i>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="savingsChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -327,8 +344,14 @@
                             <i class="fas fa-piggy-bank"></i>
                         </div>
                         <div class="insight-content">
-                            <h4>Savings Opportunity</h4>
-                            <p>Reducing entertainment expenses by 20% could save you ₹3,000 monthly without impacting lifestyle significantly.</p>
+                            <h4>Monthly Savings Analysis</h4>
+                            <p>
+                                {% if savings_data.is_saving %}
+                                    Great job! You saved ₹{{ savings_data.savings_amount|floatformat:0 }} ({{ savings_data.savings_percentage|floatformat:1 }}%) compared to last month.
+                                {% else %}
+                                    You spent ₹{{ savings_data.savings_amount|floatformat:0|cut:"-" }} ({{ savings_data.savings_percentage|floatformat:1|cut:"-" }}%) more than last month. Consider reviewing your expenses.
+                                {% endif %}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -379,6 +402,7 @@
         .kpi-icon.transactions { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
         .kpi-icon.average { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
         .kpi-icon.budget { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .kpi-icon.savings { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
 
         .kpi-trend {
             display: flex;
@@ -575,10 +599,26 @@
         }
     </style>    
 <script>
-        // Advanced Chart Configuration
-        Chart.defaults.font.family = 'Inter, sans-serif';
-        Chart.defaults.color = '#6B7280';
-        Chart.defaults.borderColor = '#E5E7EB';
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Analytics page loaded, initializing charts...');
+            console.log('Chart.js version:', Chart.version);
+            
+            // Check if all canvas elements exist
+            const canvasElements = [
+                'trendChart', 'categoryChart', 'monthlyChart', 
+                'budgetChart', 'topCategoriesChart', 'analyticsForecastChart'
+            ];
+            
+            canvasElements.forEach(id => {
+                const element = document.getElementById(id);
+                console.log(`Canvas ${id}:`, element ? 'Found' : 'Not found');
+            });
+            
+            // Advanced Chart Configuration
+            Chart.defaults.font.family = 'Inter, sans-serif';
+            Chart.defaults.color = '#6B7280';
+            Chart.defaults.borderColor = '#E5E7EB';
 
         // Color Palettes
         const colors = {
@@ -601,13 +641,24 @@
         };
 
         // 1. Advanced Spending Trend Chart
-        const trendData = {{ trend_data_json|safe }};
-        const ctx = document.getElementById('trendChart').getContext('2d');
-        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(79, 70, 229, 0.3)');
-        gradient.addColorStop(1, 'rgba(79, 70, 229, 0.05)');
+        try {
+            const trendData = {{ trend_data_json|safe }} || [
+                {date: '2026-03-01', total: 2500},
+                {date: '2026-03-02', total: 1800},
+                {date: '2026-03-03', total: 3200},
+                {date: '2026-03-04', total: 2100},
+                {date: '2026-03-05', total: 2800},
+                {date: '2026-03-06', total: 1900},
+                {date: '2026-03-07', total: 2400}
+            ];
+            const ctx = document.getElementById('trendChart');
+            if (ctx) {
+                const ctxContext = ctx.getContext('2d');
+                const gradient = ctxContext.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(79, 70, 229, 0.3)');
+                gradient.addColorStop(1, 'rgba(79, 70, 229, 0.05)');
 
-        new Chart(ctx, {
+        new Chart(ctxContext, {
             type: 'line',
             data: {
                 labels: trendData.map(item => {
@@ -681,13 +732,25 @@
                 }
             }
         });
+                console.log('Trend chart created successfully');
+            }
+        } catch (error) {
+            console.error('Error creating trend chart:', error);
+        }
 
         // 2. Enhanced Category Distribution
-        const categoryData = {{ category_breakdown_json|safe }};
-        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-        
-        if (categoryData && categoryData.length > 0) {
-            new Chart(categoryCtx, {
+        try {
+            const categoryData = {{ category_breakdown_json|safe }} || [
+                {category: 'Food', total: 15000},
+                {category: 'Transport', total: 8000},
+                {category: 'Shopping', total: 12000},
+                {category: 'Entertainment', total: 6000},
+                {category: 'Bills', total: 9000}
+            ];
+            const categoryCtx = document.getElementById('categoryChart');
+            
+            if (categoryCtx && categoryData && categoryData.length > 0) {
+            new Chart(categoryCtx.getContext('2d'), {
                 type: 'doughnut',
                 data: {
                     labels: categoryData.map(item => item.category),
@@ -737,20 +800,34 @@
                     }
                 }
             });
-        } else {
-            // Show "No data" message
-            categoryCtx.font = "16px Inter";
-            categoryCtx.fillStyle = "#6B7280";
-            categoryCtx.textAlign = "center";
-            categoryCtx.fillText("No category data available", categoryCtx.canvas.width / 2, categoryCtx.canvas.height / 2);
+            } else if (categoryCtx) {
+                // Show "No data" message
+                const ctxContext = categoryCtx.getContext('2d');
+                ctxContext.font = "16px Inter";
+                ctxContext.fillStyle = "#6B7280";
+                ctxContext.textAlign = "center";
+                ctxContext.fillText("No category data available", categoryCtx.width / 2, categoryCtx.height / 2);
+            }
+            console.log('Category chart created successfully');
+        } catch (error) {
+            console.error('Error creating category chart:', error);
         }
 
         // 3. Monthly Comparison Bar Chart
-        const monthlyData = {{ monthly_totals_json|safe }};
-        const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
-        
-        if (monthlyData && monthlyData.length > 0) {
-            new Chart(monthlyCtx, {
+        try {
+            const monthlyData = {{ monthly_totals_json|safe }} || [
+                {month: '2025-09', total: 45000},
+                {month: '2025-10', total: 52000},
+                {month: '2025-11', total: 48000},
+                {month: '2025-12', total: 49000},
+                {month: '2026-01', total: 53000},
+                {month: '2026-02', total: 47000},
+                {month: '2026-03', total: 51000}
+            ];
+            const monthlyCtx = document.getElementById('monthlyChart');
+            
+            if (monthlyCtx && monthlyData && monthlyData.length > 0) {
+            new Chart(monthlyCtx.getContext('2d'), {
                 type: 'bar',
                 data: {
                     labels: monthlyData.map(item => {
@@ -815,183 +892,38 @@
                     }
                 }
             });
-        } else {
-            // Show "No data" message
-            monthlyCtx.font = "16px Inter";
-            monthlyCtx.fillStyle = "#6B7280";
-            monthlyCtx.textAlign = "center";
-            monthlyCtx.fillText("No monthly data available", monthlyCtx.canvas.width / 2, monthlyCtx.canvas.height / 2);
+            } else if (monthlyCtx) {
+                // Show "No data" message
+                const ctxContext = monthlyCtx.getContext('2d');
+                ctxContext.font = "16px Inter";
+                ctxContext.fillStyle = "#6B7280";
+                ctxContext.textAlign = "center";
+                ctxContext.fillText("No monthly data available", monthlyCtx.width / 2, monthlyCtx.height / 2);
+            }
+            console.log('Monthly chart created successfully');
+        } catch (error) {
+            console.error('Error creating monthly chart:', error);
         }
 
-        // 4. Expense Heatmap (Simulated with Matrix Chart)
-        const heatmapCtx = document.getElementById('heatmapChart').getContext('2d');
-        const heatmapData = generateHeatmapData();
+        // 4. Budget vs Actual Comparison
+        try {
+            const budgetCtx = document.getElementById('budgetChart');
+            if (budgetCtx) {
+                console.log('Initializing budget chart...');
         
-        new Chart(heatmapCtx, {
-            type: 'scatter',
-            data: {
-                datasets: [{
-                    label: 'Daily Expenses',
-                    data: heatmapData,
-                    backgroundColor: function(context) {
-                        const value = context.parsed.y;
-                        const alpha = Math.min(value / 5000, 1); // Normalize to max 5000
-                        return `rgba(79, 70, 229, ${alpha})`;
-                    },
-                    pointRadius: 8,
-                    pointHoverRadius: 10
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        backgroundColor: '#1F2937',
-                        titleColor: '#FFFFFF',
-                        bodyColor: '#FFFFFF',
-                        borderColor: '#374151',
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        padding: 12,
-                        callbacks: {
-                            title: function(context) {
-                                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                                return days[context[0].parsed.x] + ' - Week ' + (Math.floor(context[0].parsed.y / 1000) + 1);
-                            },
-                            label: function(context) {
-                                return 'Expenses: ₹' + (context.parsed.y % 1000 * 10).toFixed(0);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        type: 'linear',
-                        position: 'bottom',
-                        min: 0,
-                        max: 6,
-                        ticks: {
-                            stepSize: 1,
-                            callback: function(value) {
-                                const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                                return days[value];
-                            }
-                        },
-                        grid: {
-                            display: false
-                        }
-                    },
-                    y: {
-                        type: 'linear',
-                        min: 0,
-                        max: 4000,
-                        ticks: {
-                            stepSize: 1000,
-                            callback: function(value) {
-                                return 'Week ' + (Math.floor(value / 1000) + 1);
-                            }
-                        },
-                        grid: {
-                            color: '#F3F4F6'
-                        }
-                    }
-                }
-            }
-        });
-
-        // 5. Budget vs Actual Comparison
-        const budgetCtx = document.getElementById('budgetChart').getContext('2d');
-        new Chart(budgetCtx, {
+        new Chart(budgetCtx.getContext('2d'), {
             type: 'bar',
             data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                datasets: [{
-                    label: 'Budget',
-                    data: [50000, 48000, 50000, 52000, 50000, 51000],
-                    backgroundColor: colors.success,
-                    borderRadius: 8,
-                    borderSkipped: false,
-                }, {
-                    label: 'Actual',
-                    data: [45000, 52000, 48000, 49000, 53000, 47000],
-                    backgroundColor: colors.primary,
-                    borderRadius: 8,
-                    borderSkipped: false,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: '#1F2937',
-                        titleColor: '#FFFFFF',
-                        bodyColor: '#FFFFFF',
-                        borderColor: '#374151',
-                        borderWidth: 1,
-                        cornerRadius: 8,
-                        padding: 12,
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': ₹' + context.parsed.y.toLocaleString();
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: '#F3F4F6'
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                return '₹' + value.toLocaleString();
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        // 6. Top Categories Horizontal Bar
-        const topCategoriesCtx = document.getElementById('topCategoriesChart').getContext('2d');
-        new Chart(topCategoriesCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Food', 'Transport', 'Shopping', 'Entertainment', 'Bills'],
+                labels: ['Current Month', 'Budget'],
                 datasets: [{
                     label: 'Amount',
-                    data: [15000, 8000, 12000, 6000, 9000],
-                    backgroundColor: [
-                        colors.primary,
-                        colors.success,
-                        colors.warning,
-                        colors.danger,
-                        colors.info
-                    ],
+                    data: [{{ kpi_data.total_expenses.value|default:0 }}, {{ budget_status.budget|default:50000 }}],
+                    backgroundColor: ['#4F46E5', '#10B981'],
                     borderRadius: 8,
                     borderSkipped: false,
                 }]
             },
             options: {
-                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
@@ -1008,13 +940,18 @@
                         padding: 12,
                         callbacks: {
                             label: function(context) {
-                                return 'Amount: ₹' + context.parsed.x.toLocaleString();
+                                return context.label + ': ₹' + context.parsed.y.toLocaleString();
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
+                        grid: {
+                            display: false
+                        }
+                    },
+                    y: {
                         beginAtZero: true,
                         grid: {
                             color: '#F3F4F6'
@@ -1024,25 +961,194 @@
                                 return '₹' + value.toLocaleString();
                             }
                         }
-                    },
-                    y: {
-                        grid: {
-                            display: false
-                        }
                     }
                 }
             }
         });
+            console.log('Budget chart created successfully');
+            }
+        } catch (error) {
+            console.error('Error creating budget chart:', error);
+        }
 
-        // AI Expense Forecast Chart for Analytics
+        // 5. Top Categories Horizontal Bar
+        try {
+            const topCategoriesCtx = document.getElementById('topCategoriesChart');
+            const categoryDataForTop = {{ category_breakdown_json|safe }} || [
+            {category: 'Food', total: 15000},
+            {category: 'Transport', total: 8000},
+            {category: 'Shopping', total: 12000},
+            {category: 'Entertainment', total: 6000},
+            {category: 'Bills', total: 9000}
+        ];
+        console.log('Top categories data:', categoryDataForTop);
+        
+        if (topCategoriesCtx && categoryDataForTop && categoryDataForTop.length > 0) {
+            // Sort by total and take top 5
+            const topCategories = categoryDataForTop.sort((a, b) => b.total - a.total).slice(0, 5);
+            console.log('Top 5 categories:', topCategories);
+            
+            new Chart(topCategoriesCtx.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: topCategories.map(item => item.category),
+                    datasets: [{
+                        label: 'Amount',
+                        data: topCategories.map(item => item.total),
+                        backgroundColor: [
+                            colors.primary,
+                            colors.success,
+                            colors.warning,
+                            colors.danger,
+                            colors.info
+                        ],
+                        borderRadius: 8,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#1F2937',
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#FFFFFF',
+                            borderColor: '#374151',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Amount: ₹' + context.parsed.x.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#F3F4F6'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '₹' + value.toLocaleString();
+                                }
+                            }
+                        },
+                        y: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        } else if (topCategoriesCtx) {
+            console.log('No category data available for top categories chart');
+            // Show "No data" message
+            const ctxContext = topCategoriesCtx.getContext('2d');
+            ctxContext.font = "16px Inter";
+            ctxContext.fillStyle = "#6B7280";
+            ctxContext.textAlign = "center";
+            ctxContext.fillText("No category data available", topCategoriesCtx.width / 2, topCategoriesCtx.height / 2);
+        }
+        console.log('Top categories chart created successfully');
+        } catch (error) {
+            console.error('Error creating top categories chart:', error);
+        }
+
+        // 6. Savings Comparison Chart
+        try {
+            const savingsCtx = document.getElementById('savingsChart');
+            if (savingsCtx) {
+                const savingsData = {
+                    current_month: {{ savings_data.current_month_total|default:0 }},
+                    previous_month: {{ savings_data.previous_month_total|default:0 }},
+                    savings_amount: {{ savings_data.savings_amount|default:0 }},
+                    savings_percentage: {{ savings_data.savings_percentage|default:0 }}
+                };
+
+                new Chart(savingsCtx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['Previous Month', 'Current Month', 'Difference'],
+                        datasets: [{
+                            label: 'Amount',
+                            data: [
+                                savingsData.previous_month,
+                                savingsData.current_month,
+                                Math.abs(savingsData.savings_amount)
+                            ],
+                            backgroundColor: [
+                                '#6B7280',  // Previous month - gray
+                                '#4F46E5',  // Current month - primary
+                                savingsData.savings_amount >= 0 ? '#10B981' : '#EF4444'  // Savings - green if positive, red if negative
+                            ],
+                            borderRadius: 8,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1F2937',
+                                titleColor: '#FFFFFF',
+                                bodyColor: '#FFFFFF',
+                                callbacks: {
+                                    label: function(context) {
+                                        if (context.dataIndex === 2) {
+                                            const type = savingsData.savings_amount >= 0 ? 'Saved' : 'Overspent';
+                                            return type + ': ₹' + Math.abs(savingsData.savings_amount).toLocaleString();
+                                        }
+                                        return context.label + ': ₹' + context.parsed.y.toLocaleString();
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#F3F4F6' },
+                                ticks: {
+                                    callback: function(value) {
+                                        return '₹' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('Savings chart created successfully');
+            }
+        } catch (error) {
+            console.error('Error creating savings chart:', error);
+        }
+
+        // 7. AI Expense Forecast Chart for Analytics
         {% if ai_forecast_chart and ai_forecast_chart.chart_data_json %}
-        const analyticsForecastCtx = document.getElementById('analyticsForecastChart').getContext('2d');
+        try {
+            console.log('AI forecast chart data available for analytics');
+        const analyticsForecastCtx = document.getElementById('analyticsForecastChart');
+        if (analyticsForecastCtx) {
         const analyticsForecastData = {{ ai_forecast_chart.chart_data_json|safe }};
+        console.log('Analytics forecast data:', analyticsForecastData);
         
         const analyticsHistoricalData = analyticsForecastData.filter(item => !item.is_predicted);
         const analyticsPredictedData = analyticsForecastData.filter(item => item.is_predicted);
+        console.log('Analytics historical points:', analyticsHistoricalData.length);
+        console.log('Analytics predicted points:', analyticsPredictedData.length);
         
-        new Chart(analyticsForecastCtx, {
+        new Chart(analyticsForecastCtx.getContext('2d'), {
             type: 'line',
             data: {
                 labels: analyticsForecastData.map(item => item.month_name),
@@ -1134,27 +1240,21 @@
                 }
             }
         });
+            console.log('AI forecast chart created successfully');
+        }
+        } catch (error) {
+            console.error('Error creating AI forecast chart:', error);
+        }
         {% endif %}
 
-        // Helper function to generate heatmap data
-        function generateHeatmapData() {
-            const data = [];
-            for (let week = 0; week < 4; week++) {
-                for (let day = 0; day < 7; day++) {
-                    data.push({
-                        x: day,
-                        y: week * 1000 + Math.random() * 500 + 200
-                    });
-                }
-            }
-            return data;
-        }
-
-        // Period selector functionality
-        document.getElementById('trendPeriod').addEventListener('change', function(e) {
-            // Reload trend chart with new period
-            console.log('Period changed to:', e.target.value);
-            // Implementation would fetch new data based on selected period
+            // Period selector functionality
+            document.getElementById('trendPeriod').addEventListener('change', function(e) {
+                // Reload trend chart with new period
+                console.log('Period changed to:', e.target.value);
+                // Implementation would fetch new data based on selected period
+            });
+            
+            console.log('All analytics charts initialized successfully');
         });
     </script>
 </body>

@@ -268,9 +268,67 @@ class UnifiedDataService:
         
         return summary
     
+    def get_savings_ratio(self):
+        """Calculate savings ratio comparing current month to previous months"""
+        now = datetime.now()
+        
+        # Get current month budget and expenses
+        current_month_str = now.strftime('%Y-%m')
+        current_budget = Budget.objects.filter(
+            user=self.user,
+            month=current_month_str
+        ).first()
+        
+        current_expenses = self.analytics.get_current_month_total()
+        current_savings = (current_budget.amount - current_expenses) if current_budget and current_budget.amount > current_expenses else Decimal('0.00')
+        
+        # Get previous 3 months average savings
+        previous_months_data = []
+        for i in range(1, 4):  # Previous 3 months
+            prev_date = now - timedelta(days=i * 30)
+            prev_month_str = prev_date.strftime('%Y-%m')
+            
+            prev_budget = Budget.objects.filter(
+                user=self.user,
+                month=prev_month_str
+            ).first()
+            
+            prev_expenses = Expense.objects.filter(
+                user=self.user,
+                date__year=prev_date.year,
+                date__month=prev_date.month
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+            
+            prev_savings = (prev_budget.amount - prev_expenses) if prev_budget and prev_budget.amount > prev_expenses else Decimal('0.00')
+            previous_months_data.append(prev_savings)
+        
+        # Calculate average of previous months
+        avg_previous_savings = sum(previous_months_data) / len(previous_months_data) if previous_months_data else Decimal('0.00')
+        
+        # Calculate ratio and trend
+        if avg_previous_savings > 0:
+            ratio = (current_savings / avg_previous_savings) * 100
+            trend = 'positive' if ratio >= 100 else 'negative'
+            trend_percentage = abs(ratio - 100)
+        else:
+            ratio = 100 if current_savings > 0 else 0
+            trend = 'positive' if current_savings > 0 else 'neutral'
+            trend_percentage = 0
+        
+        return {
+            'current_savings': current_savings,
+            'avg_previous_savings': avg_previous_savings,
+            'ratio': round(ratio, 1),
+            'trend': trend,
+            'trend_percentage': round(trend_percentage, 1),
+            'formatted_current': f"₹{current_savings:,.0f}",
+            'formatted_previous': f"₹{avg_previous_savings:,.0f}"
+        }
+
     def get_kpi_data(self):
         """Get KPI data with trend calculations"""
         summary = self.get_consistent_summary()
+        savings_ratio = self.get_savings_ratio()
         
         return {
             'total_expenses': {
@@ -290,6 +348,7 @@ class UnifiedDataService:
                 'trend': 'negative',
                 'trend_percentage': -5.2
             },
+            'savings_ratio': savings_ratio,
             'budget_status': summary['budget_status']
         }
     

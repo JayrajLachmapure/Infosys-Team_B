@@ -10,6 +10,7 @@ from django.db.models import Sum, Q
 from django.core.paginator import Paginator
 from datetime import datetime
 from decimal import Decimal
+from dateutil.relativedelta import relativedelta
 from .models import Budget, Expense
 from .forms import BudgetForm, ExpenseForm, ExpenseFilterForm
 from .services import ExpenseAnalytics
@@ -51,6 +52,48 @@ class DashboardView(LoginRequiredMixin, View):
         # Get recent expenses
         recent_expenses = Expense.objects.filter(user=request.user)[:5]
         
+        # Calculate savings ratio compared to previous month
+        from django.db.models.functions import TruncMonth
+        from dateutil.relativedelta import relativedelta
+        
+        current_month = datetime.now().date().replace(day=1)
+        previous_month = current_month - relativedelta(months=1)
+        
+        # Get current month expenses
+        current_month_expenses = Expense.objects.filter(
+            user=request.user,
+            date__gte=current_month,
+            date__lt=current_month + relativedelta(months=1)
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Get previous month expenses
+        previous_month_expenses = Expense.objects.filter(
+            user=request.user,
+            date__gte=previous_month,
+            date__lt=current_month
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Calculate savings ratio
+        savings_data = {
+            'current_month_total': float(current_month_expenses),
+            'previous_month_total': float(previous_month_expenses),
+            'savings_amount': float(previous_month_expenses - current_month_expenses),
+            'savings_percentage': 0,
+            'is_saving': False,
+            'trend': 'neutral'
+        }
+        
+        if previous_month_expenses > 0:
+            savings_data['savings_percentage'] = ((previous_month_expenses - current_month_expenses) / previous_month_expenses) * 100
+            savings_data['is_saving'] = current_month_expenses < previous_month_expenses
+            
+            if savings_data['savings_percentage'] > 5:
+                savings_data['trend'] = 'positive'
+            elif savings_data['savings_percentage'] < -5:
+                savings_data['trend'] = 'negative'
+            else:
+                savings_data['trend'] = 'neutral'
+        
         context = {
             'summary': summary,
             'kpi_data': kpi_data,
@@ -61,6 +104,7 @@ class DashboardView(LoginRequiredMixin, View):
             'ai_monthly_forecast': ai_monthly_forecast,
             'ai_forecast_chart': ai_forecast_chart,
             'ai_insights': ai_insights,
+            'savings_data': savings_data,
         }
         
         return render(request, 'expenses/dashboard_modern.html', context)
@@ -250,6 +294,48 @@ class AnalyticsView(LoginRequiredMixin, View):
         
         trend_data_json = json.dumps(trend_data)
         
+        # Calculate savings ratio compared to previous month
+        from django.db.models.functions import TruncMonth
+        from dateutil.relativedelta import relativedelta
+        
+        current_month = datetime.now().date().replace(day=1)
+        previous_month = current_month - relativedelta(months=1)
+        
+        # Get current month expenses
+        current_month_expenses = Expense.objects.filter(
+            user=request.user,
+            date__gte=current_month,
+            date__lt=current_month + relativedelta(months=1)
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Get previous month expenses
+        previous_month_expenses = Expense.objects.filter(
+            user=request.user,
+            date__gte=previous_month,
+            date__lt=current_month
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        
+        # Calculate savings ratio
+        savings_data = {
+            'current_month_total': float(current_month_expenses),
+            'previous_month_total': float(previous_month_expenses),
+            'savings_amount': float(previous_month_expenses - current_month_expenses),
+            'savings_percentage': 0,
+            'is_saving': False,
+            'trend': 'neutral'
+        }
+        
+        if previous_month_expenses > 0:
+            savings_data['savings_percentage'] = ((previous_month_expenses - current_month_expenses) / previous_month_expenses) * 100
+            savings_data['is_saving'] = current_month_expenses < previous_month_expenses
+            
+            if savings_data['savings_percentage'] > 5:
+                savings_data['trend'] = 'positive'
+            elif savings_data['savings_percentage'] < -5:
+                savings_data['trend'] = 'negative'
+            else:
+                savings_data['trend'] = 'neutral'
+        
         context = {
             'summary': summary,
             'kpi_data': kpi_data,
@@ -266,6 +352,7 @@ class AnalyticsView(LoginRequiredMixin, View):
             'category_breakdown_json': category_breakdown_json,
             'monthly_totals_json': monthly_totals_json,
             'trend_data_json': trend_data_json,
+            'savings_data': savings_data,
         }
         
         return render(request, 'expenses/analytics_modern.html', context)

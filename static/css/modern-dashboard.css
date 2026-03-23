@@ -379,6 +379,7 @@ body {
 .card-icon.orange { background: #fed7aa; }
 .card-icon.purple { background: #e9d5ff; }
 .card-icon.red { background: #fee2e2; }
+.card-icon.savings-ratio { background: #f0f9ff; color: #0369a1; }
 
 .card-content {
     flex: 1;
