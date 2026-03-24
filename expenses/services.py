@@ -127,8 +127,8 @@ class ExpenseAnalytics:
         now = datetime.now()
         
         for i in range(months):
-            # Calculate month and year
-            target_date = now - timedelta(days=i * 30)
+            # Calculate month and year using proper month arithmetic
+            target_date = now - relativedelta(months=i)
             month_str = target_date.strftime('%Y-%m')
             
             # Get expenses for this month
@@ -311,7 +311,9 @@ class UnifiedDataService:
             'total_expenses_formatted': f"₹{total_expenses:,.0f}",
             'average_transaction_formatted': f"₹{average_transaction:,.0f}",
             'selected_month': self.selected_month,
-            'selected_month_display': self.selected_date.strftime('%B %Y')
+            'selected_month_display': self.selected_date.strftime('%B %Y'),
+            'monthly_breakdown': self.analytics.get_monthly_expenses_breakdown(12),
+            'total_savings': self.analytics.get_total_savings(12),
         }
         
         return summary

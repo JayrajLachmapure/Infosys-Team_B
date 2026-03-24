@@ -222,11 +222,19 @@ class ListExpensesView(LoginRequiredMixin, View):
     List all expenses with filtering and pagination.
     """
     def get(self, request):
+        # Get selected month from URL parameter for pre-filtering
+        selected_month = request.GET.get('month')
+        
         # Get all user expenses
         expenses = Expense.objects.filter(user=request.user)
         
+        # Pre-populate filter form with month if provided
+        initial_data = {}
+        if selected_month:
+            initial_data['month'] = selected_month
+        
         # Apply filters
-        filter_form = ExpenseFilterForm(request.GET)
+        filter_form = ExpenseFilterForm(request.GET or initial_data)
         if filter_form.is_valid():
             category = filter_form.cleaned_data.get('category')
             month = filter_form.cleaned_data.get('month')
@@ -258,6 +266,7 @@ class ListExpensesView(LoginRequiredMixin, View):
             'total': total,
             'count': expenses.count(),
             'average': total / expenses.count() if expenses.count() > 0 else 0,
+            'selected_month': selected_month,
         }
         
         return render(request, 'expenses/list_expenses_modern.html', context)

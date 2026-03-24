@@ -25,7 +25,7 @@
             </div>
             
             <nav class="sidebar-nav">
-                <a href="{% url 'expenses:dashboard' %}" class="nav-item">
+                <a href="{% url 'expenses:dashboard' %}{% if selected_month %}?month={{ selected_month }}{% endif %}" class="nav-item">
                     <div class="nav-icon">
                         <i class="fas fa-tachometer-alt"></i>
                     </div>
@@ -37,13 +37,13 @@
                     </div>
                     <span>Add Expense</span>
                 </a>
-                <a href="{% url 'expenses:list_expenses' %}" class="nav-item active">
+                <a href="{% url 'expenses:list_expenses' %}{% if selected_month %}?month={{ selected_month }}{% endif %}" class="nav-item active">
                     <div class="nav-icon">
                         <i class="fas fa-list-alt"></i>
                     </div>
                     <span>All Expenses</span>
                 </a>
-                <a href="{% url 'expenses:analytics' %}" class="nav-item">
+                <a href="{% url 'expenses:analytics' %}{% if selected_month %}?month={{ selected_month }}{% endif %}" class="nav-item">
                     <div class="nav-icon">
                         <i class="fas fa-chart-bar"></i>
                     </div>

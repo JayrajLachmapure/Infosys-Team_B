@@ -670,6 +670,32 @@ body {
   color: var(--accent-danger);
 }
 
+/* Empty State */
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.empty-message {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
 .month-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

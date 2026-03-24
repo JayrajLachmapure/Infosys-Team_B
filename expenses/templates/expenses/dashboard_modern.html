@@ -26,7 +26,7 @@
             </div>
             
             <nav class="sidebar-nav">
-                <a href="{% url 'expenses:dashboard' %}" class="nav-item active">
+                <a href="{% url 'expenses:dashboard' %}{% if selected_month %}?month={{ selected_month }}{% endif %}" class="nav-item active">
                     <div class="nav-icon">
                         <i class="fas fa-tachometer-alt"></i>
                     </div>
@@ -38,13 +38,13 @@
                     </div>
                     <span>Add Expense</span>
                 </a>
-                <a href="{% url 'expenses:list_expenses' %}" class="nav-item">
+                <a href="{% url 'expenses:list_expenses' %}{% if selected_month %}?month={{ selected_month }}{% endif %}" class="nav-item">
                     <div class="nav-icon">
                         <i class="fas fa-list-alt"></i>
                     </div>
                     <span>All Expenses</span>
                 </a>
-                <a href="{% url 'expenses:analytics' %}" class="nav-item">
+                <a href="{% url 'expenses:analytics' %}{% if selected_month %}?month={{ selected_month }}{% endif %}" class="nav-item">
                     <div class="nav-icon">
                         <i class="fas fa-chart-bar"></i>
                     </div>
@@ -417,6 +417,14 @@
                         </div>
                         {% endif %}
                     </div>
+                    {% empty %}
+                    <div class="empty-state">
+                        <div class="empty-icon">
+                            <i class="fas fa-calendar-times"></i>
+                        </div>
+                        <div class="empty-title">No Monthly Data</div>
+                        <div class="empty-message">Add some expenses and set budgets to see monthly breakdown</div>
+                    </div>
                     {% endfor %}
                 </div>
             </div>
@@ -465,7 +473,7 @@
                         <i class="fas fa-list"></i>
                         View All Expenses
                     </a>
-                    <a href="{% url 'expenses:analytics' %}" class="action-btn secondary">
+                    <a href="{% url 'expenses:analytics' %}{% if selected_month %}?month={{ selected_month }}{% endif %}" class="action-btn secondary">
                         <i class="fas fa-chart-bar"></i>
                         Advanced Analytics
                     </a>
