@@ -40,6 +40,22 @@
     --sidebar-width: 260px;
 }
 
+[data-theme="dark"] {
+    --bg-primary: #101B32;
+    --bg-secondary: #0B1220;
+    --bg-tertiary: #192846;
+    --text-primary: #E5E7EB;
+    --text-secondary: #A3ADC2;
+    --text-tertiary: #7C879E;
+    --border: #24314D;
+    --border-light: #1B2946;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+    --shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.45);
+    --shadow-md: 0 8px 14px -4px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 16px 24px -8px rgba(0, 0, 0, 0.55);
+    --shadow-xl: 0 24px 36px -12px rgba(0, 0, 0, 0.6);
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background: var(--bg-secondary);
@@ -118,6 +134,70 @@ body {
 .sidebar-footer {
     padding: 16px;
     border-top: 1px solid var(--border);
+}
+
+.theme-toggle-card {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: transparent;
+    width: fit-content;
+}
+
+.theme-toggle-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.theme-toggle-switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.theme-toggle-switch input {
+    display: none;
+}
+
+.theme-toggle-slider {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--border);
+    transition: background-color 0.2s ease;
+}
+
+.theme-toggle-slider::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: transform 0.2s ease;
+}
+
+.theme-toggle-switch input:checked + .theme-toggle-slider {
+    background: var(--primary);
+}
+
+.theme-toggle-switch input:checked + .theme-toggle-slider::before {
+    transform: translateX(18px);
+}
+
+.theme-toggle-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .user-info {

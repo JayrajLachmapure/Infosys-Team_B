@@ -33,6 +33,13 @@
     </nav>
     
     <div class="sidebar-footer">
+        <div class="theme-toggle-card">
+            <label class="theme-toggle-switch">
+                <input type="checkbox" data-theme-toggle aria-label="Toggle dark mode">
+                <span class="theme-toggle-slider"></span>
+                <span class="theme-toggle-text" data-theme-text>☀</span>
+            </label>
+        </div>
         <div class="user-info">
             <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
             <div class="user-details">

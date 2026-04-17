@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Analytics - BudgetWise AI</title>
     <link rel="stylesheet" href="{% static 'css/dashboard-modern.css' %}">
+    <script src="{% static 'js/theme-toggle.js' %}" defer></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -54,6 +55,13 @@
             </nav>
             
             <div class="sidebar-footer">
+                <div class="theme-toggle-card">
+                    <label class="theme-toggle-switch">
+                        <input type="checkbox" data-theme-toggle aria-label="Toggle dark mode">
+                        <span class="theme-toggle-slider"></span>
+                        <span class="theme-toggle-text" data-theme-text>☀</span>
+                    </label>
+                </div>
                 <div class="user-info">
                     <div class="user-avatar">{{ user.username|slice:":1"|upper }}</div>
                     <div class="user-details">
